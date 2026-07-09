@@ -5,35 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Text Format Converter</title>
   <style>
-    :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --text:#e2e8f0; --muted:#94a3b8; --line:#334155; }
+    :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --text:#e2e8f0; --muted:#94a3b8; --line:#334155; --ok:#22c55e; --err:#ef4444; }
     * { box-sizing: border-box; }
     body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text);
            min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:1.5rem; }
-    .card { background:var(--card); border-radius:16px; padding:2rem; width:100%; max-width:560px;
+    .card { background:var(--card); border-radius:16px; padding:2rem; width:100%; max-width:600px;
             box-shadow:0 10px 40px rgba(0,0,0,.4); }
     h1 { margin:0 0 .25rem; font-size:1.5rem; }
     p.sub { margin:0 0 1.25rem; color:var(--muted); font-size:.9rem; }
     label { display:block; font-size:.78rem; color:var(--muted); margin:.9rem 0 .3rem; text-transform:uppercase; letter-spacing:.05em; }
-    input[type=file], input[type=url], select { width:100%; padding:.65rem; border-radius:8px; border:1px solid var(--line);
+    input[type=url], select { width:100%; padding:.65rem; border-radius:8px; border:1px solid var(--line);
             background:#0f172a; color:var(--text); font-size:.92rem; }
     .row { display:flex; gap:1rem; }
     .row > div { flex:1; }
-    button { width:100%; margin-top:1.25rem; padding:.8rem; border:none; border-radius:8px;
-             background:var(--accent); color:#04222e; font-weight:600; font-size:1rem; cursor:pointer; }
+    button { border:none; border-radius:8px; cursor:pointer; font-weight:600; }
+    .actions { display:flex; gap:.75rem; margin-top:1.25rem; }
+    .actions button { flex:1; padding:.8rem; font-size:1rem; }
+    #btn { background:var(--accent); color:#04222e; }
+    #btn-preview { background:#0f172a; color:var(--text); border:1px solid var(--line); }
     button:disabled { opacity:.5; cursor:not-allowed; }
     .tabs { display:flex; gap:.5rem; margin-bottom:1rem; }
-    .tabs button { flex:1; margin:0; padding:.55rem; background:#0f172a; color:var(--muted); border:1px solid var(--line); font-weight:500; }
+    .tabs button { flex:1; padding:.55rem; background:#0f172a; color:var(--muted); border:1px solid var(--line); font-weight:500; }
     .tabs button.active { background:var(--accent); color:#04222e; border-color:var(--accent); }
+    /* Drop zone */
+    .drop { border:2px dashed var(--line); border-radius:10px; padding:1.5rem; text-align:center;
+            color:var(--muted); cursor:pointer; transition:.15s; font-size:.9rem; }
+    .drop.over { border-color:var(--accent); background:rgba(56,189,248,.08); color:var(--text); }
+    .drop strong { color:var(--accent); }
+    .filelist { list-style:none; margin:.75rem 0 0; padding:0; }
+    .filelist li { display:flex; align-items:center; justify-content:space-between; gap:.5rem;
+            background:#0f172a; border:1px solid var(--line); border-radius:8px; padding:.45rem .7rem; margin-top:.4rem; font-size:.85rem; }
+    .filelist .rm { background:transparent; color:var(--err); font-size:1.1rem; padding:0 .3rem; line-height:1; }
+    .filelist .sz { color:var(--muted); font-size:.75rem; }
     .checks { display:flex; gap:1.25rem; margin-top:.9rem; flex-wrap:wrap; }
     .checks label { display:flex; align-items:center; gap:.4rem; margin:0; text-transform:none; letter-spacing:0; font-size:.85rem; color:var(--text); cursor:pointer; }
     .checks input { width:auto; }
     details { margin-top:1rem; border:1px solid var(--line); border-radius:8px; padding:.6rem .8rem; }
     summary { cursor:pointer; font-size:.85rem; color:var(--muted); }
+    /* Progress */
+    .progress { height:6px; background:#0f172a; border-radius:4px; overflow:hidden; margin-top:1rem; display:none; }
+    .progress.show { display:block; }
+    .progress .bar { height:100%; width:0; background:var(--accent); transition:width .2s; }
+    .progress.proc .bar { width:100% !important; animation:pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
     .msg { margin-top:1rem; padding:.75rem; border-radius:8px; font-size:.88rem; display:none; }
     .msg.error { background:#7f1d1d; color:#fecaca; display:block; }
     .msg.ok { background:#064e3b; color:#a7f3d0; display:block; }
     .hint { font-size:.74rem; color:var(--muted); margin-top:.35rem; }
     .hidden { display:none; }
+    /* Preview */
+    #preview { margin-top:1rem; display:none; }
+    #preview h3 { font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 .5rem; }
+    #preview pre { background:#0f172a; border:1px solid var(--line); border-radius:8px; padding:1rem;
+            max-height:340px; overflow:auto; font-size:.82rem; white-space:pre-wrap; word-break:break-word; }
+    #preview iframe { width:100%; height:340px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+    #preview .note { color:var(--muted); font-size:.85rem; }
   </style>
 </head>
 <body>
@@ -47,34 +73,37 @@
     </div>
 
     <!-- FILE MODE -->
-    <form id="form-file">
-      <label for="file">Chọn file (có thể chọn nhiều)</label>
-      <input type="file" id="file" name="file" multiple required>
+    <div id="form-file">
+      <div class="drop" id="drop">
+        <strong>Kéo &amp; thả</strong> file vào đây, hoặc bấm để chọn
+        <input type="file" id="file" multiple class="hidden">
+      </div>
+      <ul class="filelist" id="filelist"></ul>
 
       <div class="row">
         <div>
           <label for="source">Từ định dạng</label>
-          <select id="source" name="source"></select>
+          <select id="source"></select>
         </div>
         <div>
           <label for="target">Sang định dạng</label>
-          <select id="target" name="target"></select>
+          <select id="target"></select>
         </div>
       </div>
 
       <div class="checks">
         <label><input type="checkbox" id="merge"> Gộp nhiều file thành 1</label>
       </div>
-    </form>
+    </div>
 
     <!-- URL MODE -->
-    <form id="form-url" class="hidden">
+    <div id="form-url" class="hidden">
       <label for="url">Dán link trang web</label>
-      <input type="url" id="url" name="url" placeholder="https://example.com/article">
+      <input type="url" id="url" placeholder="https://example.com/article">
       <label for="target-url">Sang định dạng</label>
-      <select id="target-url" name="target-url"></select>
+      <select id="target-url"></select>
       <p class="hint">Chỉ nhận URL http/https công khai. Kết quả là định dạng tài liệu (md, pdf, docx...).</p>
-    </form>
+    </div>
 
     <!-- SHARED OPTIONS -->
     <details open>
@@ -102,15 +131,36 @@
       </div>
     </details>
 
-    <button type="button" id="btn">Chuyển đổi & Tải về</button>
+    <div class="actions">
+      <button type="button" id="btn-preview">Xem trước</button>
+      <button type="button" id="btn">Chuyển đổi &amp; Tải về</button>
+    </div>
+
+    <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
     <div id="msg" class="msg"></div>
+
+    <div id="preview">
+      <h3>Xem trước</h3>
+      <div id="preview-body"></div>
+    </div>
   </div>
 
   <script>
     const $ = id => document.getElementById(id);
-    const msg = $('msg'), btn = $('btn');
+    const msg = $('msg'), btn = $('btn'), btnPrev = $('btn-preview');
+    const progress = $('progress'), bar = $('bar');
     let mode = 'file';
+    let selectedFiles = [];
+    let cached = null;               // {blob, filename, target} of last conversion
+    const TEXT_TARGETS = new Set(['txt','md','html','json','yaml','csv','xml','latex','rtf']);
+    const NO_PREVIEW = new Set(['docx','odt']);
 
+    // ---- format helpers ----
+    function fmtSize(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+      return (n/1024/1024).toFixed(2) + ' MB';
+    }
     function fill(sel, items, withAuto) {
       sel.innerHTML = '';
       if (withAuto) {
@@ -118,34 +168,34 @@
         o.value = 'auto'; o.textContent = 'Tự động (theo đuôi file)';
         sel.appendChild(o);
       }
-      let lastFamily = null, group = null;
+      let last = null, group = null;
       items.forEach(f => {
-        if (f.family !== lastFamily) {
+        if (f.family !== last) {
           group = document.createElement('optgroup');
           group.label = f.family === 'document' ? 'Tài liệu' : 'Dữ liệu';
-          sel.appendChild(group); lastFamily = f.family;
+          sel.appendChild(group); last = f.family;
         }
         const opt = document.createElement('option');
         opt.value = f.name; opt.textContent = `${f.label} (${f.extension})`;
         group.appendChild(opt);
       });
     }
-
     function show(text, kind) { msg.textContent = text; msg.className = 'msg ' + kind; }
+    function invalidate() { cached = null; }
 
     async function load() {
       const data = await (await fetch('/api/formats')).json();
       const fmts = data.formats;
       fill($('source'), fmts.filter(f => f.readable), true);
       fill($('target'), fmts.filter(f => f.writable), false);
-      // URL target: only document formats make sense.
       fill($('target-url'), fmts.filter(f => f.writable && f.family === 'document'), false);
-      if ($('target').options.length > 1) $('target').value = 'pdf';
+      if ($('target').querySelector('option[value="pdf"]')) $('target').value = 'pdf';
       if ($('target-url').querySelector('option[value="pdf"]')) $('target-url').value = 'pdf';
     }
 
+    // ---- tabs ----
     function setMode(m) {
-      mode = m;
+      mode = m; invalidate();
       $('tab-file').classList.toggle('active', m === 'file');
       $('tab-url').classList.toggle('active', m === 'url');
       $('form-file').classList.toggle('hidden', m !== 'file');
@@ -154,54 +204,158 @@
     $('tab-file').onclick = () => setMode('file');
     $('tab-url').onclick = () => setMode('url');
 
-    function download(blob, dispo) {
-      const match = (dispo || '').match(/filename="?([^"]+)"?/);
-      const name = match ? match[1] : 'converted';
-      const u = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = u; a.download = name; a.click();
-      URL.revokeObjectURL(u);
-      return name;
+    // ---- drag & drop + file list ----
+    const drop = $('drop');
+    drop.onclick = () => $('file').click();
+    $('file').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
+    ['dragenter','dragover'].forEach(ev =>
+      drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave','drop'].forEach(ev =>
+      drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', e => { if (e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+
+    function addFiles(list) {
+      for (const f of list) {
+        if (!selectedFiles.some(x => x.name === f.name && x.size === f.size))
+          selectedFiles.push(f);
+      }
+      invalidate(); renderFiles();
+    }
+    function removeFile(i) { selectedFiles.splice(i, 1); invalidate(); renderFiles(); }
+    function renderFiles() {
+      const ul = $('filelist'); ul.innerHTML = '';
+      selectedFiles.forEach((f, i) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${f.name} <span class="sz">${fmtSize(f.size)}</span></span>`;
+        const b = document.createElement('button');
+        b.className = 'rm'; b.textContent = '×'; b.title = 'Xóa';
+        b.onclick = () => removeFile(i);
+        li.appendChild(b); ul.appendChild(li);
+      });
     }
 
-    btn.onclick = async () => {
-      msg.className = 'msg';
+    // invalidate cache on any option change
+    ['source','target','target-url','theme','paper','merge','toc','url']
+      .forEach(id => { const el = $(id); if (el) el.addEventListener('change', invalidate); });
+    $('url').addEventListener('input', invalidate);
+
+    // ---- build request ----
+    function buildRequest() {
       const fd = new FormData();
       fd.append('theme', $('theme').value);
       fd.append('paper_size', $('paper').value);
       fd.append('toc', $('toc').checked);
-
-      let endpoint;
       if (mode === 'file') {
-        const files = $('file').files;
-        if (!files.length) { show('Vui lòng chọn file.', 'error'); return; }
-        for (const f of files) fd.append('files', f);
+        if (!selectedFiles.length) throw new Error('Vui lòng chọn file.');
+        for (const f of selectedFiles) fd.append('files', f);
         fd.append('source', $('source').value);
         fd.append('target', $('target').value);
         fd.append('merge', $('merge').checked);
-        endpoint = '/api/convert';
-      } else {
-        const url = $('url').value.trim();
-        if (!url) { show('Vui lòng nhập URL.', 'error'); return; }
-        fd.append('url', url);
-        fd.append('target', $('target-url').value);
-        endpoint = '/api/convert-url';
+        return { fd, endpoint: '/api/convert', target: $('target').value };
       }
+      const url = $('url').value.trim();
+      if (!url) throw new Error('Vui lòng nhập URL.');
+      fd.append('url', url);
+      fd.append('target', $('target-url').value);
+      return { fd, endpoint: '/api/convert-url', target: $('target-url').value };
+    }
 
-      btn.disabled = true; btn.textContent = 'Đang xử lý...';
+    function producesZip() {
+      return mode === 'file' && selectedFiles.length > 1 && !$('merge').checked;
+    }
+
+    // ---- XHR conversion with progress ----
+    function runConversion() {
+      const { fd, endpoint, target } = buildRequest();
+      progress.classList.add('show'); progress.classList.remove('proc'); bar.style.width = '0';
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', endpoint);
+        xhr.responseType = 'blob';
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) bar.style.width = (e.loaded / e.total * 100) + '%';
+        };
+        xhr.upload.onload = () => progress.classList.add('proc');  // server is processing
+        xhr.onload = () => {
+          progress.classList.remove('proc'); bar.style.width = '100%';
+          setTimeout(() => progress.classList.remove('show'), 400);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const dispo = xhr.getResponseHeader('Content-Disposition') || '';
+            const m = dispo.match(/filename="?([^"]+)"?/);
+            resolve({ blob: xhr.response, filename: m ? m[1] : 'converted', target,
+                      type: xhr.getResponseHeader('Content-Type') });
+          } else {
+            xhr.response.text().then(t => {
+              let d = 'Chuyển đổi thất bại.';
+              try { d = JSON.parse(t).detail || d; } catch (_) {}
+              reject(new Error(d));
+            });
+          }
+        };
+        xhr.onerror = () => { progress.classList.remove('show','proc'); reject(new Error('Lỗi kết nối')); };
+        xhr.send(fd);
+      });
+    }
+
+    function triggerDownload(blob, filename) {
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = u; a.download = filename; a.click();
+      URL.revokeObjectURL(u);
+    }
+
+    async function getResult() {
+      if (cached) return cached;
+      cached = await runConversion();
+      return cached;
+    }
+
+    // ---- buttons ----
+    btn.onclick = async () => {
+      msg.className = 'msg';
+      btn.disabled = btnPrev.disabled = true;
+      const prevText = btn.textContent; btn.textContent = 'Đang xử lý...';
       try {
-        const res = await fetch(endpoint, { method: 'POST', body: fd });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ detail: 'Lỗi không xác định' }));
-          show(err.detail || 'Chuyển đổi thất bại.', 'error'); return;
-        }
-        const name = download(await res.blob(), res.headers.get('Content-Disposition'));
-        show('Đã chuyển đổi xong: ' + name, 'ok');
-      } catch (err) {
-        show('Lỗi kết nối: ' + err.message, 'error');
-      } finally {
-        btn.disabled = false; btn.textContent = 'Chuyển đổi & Tải về';
+        const r = await getResult();
+        triggerDownload(r.blob, r.filename);
+        show('Đã chuyển đổi xong: ' + r.filename, 'ok');
+      } catch (e) { show(e.message, 'error'); }
+      finally { btn.disabled = btnPrev.disabled = false; btn.textContent = prevText; }
+    };
+
+    btnPrev.onclick = async () => {
+      msg.className = 'msg';
+      const pv = $('preview'), body = $('preview-body');
+      if (producesZip()) {
+        show('Nhiều file (không gộp) sẽ xuất ra .zip — không xem trước được. Hãy tick "Gộp" hoặc chọn 1 file.', 'error');
+        return;
       }
+      btn.disabled = btnPrev.disabled = true;
+      const t0 = btnPrev.textContent; btnPrev.textContent = 'Đang tạo...';
+      try {
+        const r = await getResult();
+        body.innerHTML = ''; pv.style.display = 'block';
+        if (r.target === 'pdf') {
+          const f = document.createElement('iframe');
+          f.src = URL.createObjectURL(r.blob); body.appendChild(f);
+        } else if (r.target === 'html') {
+          const f = document.createElement('iframe');
+          f.setAttribute('sandbox', '');
+          f.srcdoc = await r.blob.text(); body.appendChild(f);
+        } else if (NO_PREVIEW.has(r.target)) {
+          body.innerHTML = '<p class="note">Định dạng ' + r.target.toUpperCase()
+            + ' không xem trước trực tiếp được. Bấm "Tải về" để mở bằng ứng dụng.</p>';
+        } else if (TEXT_TARGETS.has(r.target)) {
+          const pre = document.createElement('pre');
+          let text = await r.blob.text();
+          if (text.length > 20000) text = text.slice(0, 20000) + '\n... (đã cắt bớt)';
+          pre.textContent = text; body.appendChild(pre);
+        } else {
+          body.innerHTML = '<p class="note">Không xem trước được định dạng này.</p>';
+        }
+        show('Đã tạo bản xem trước.', 'ok');
+      } catch (e) { show(e.message, 'error'); pv.style.display = 'none'; }
+      finally { btn.disabled = btnPrev.disabled = false; btnPrev.textContent = t0; }
     };
 
     load();

@@ -28,6 +28,10 @@ Ghi chú:
 
 ## Tính năng
 
+- **Kéo & thả file** + danh sách file đã chọn (thêm/xóa từng file).
+- **Xem trước** kết quả trước khi tải: text hiển thị trực tiếp, HTML/PDF
+  render trong khung xem trước.
+- **Thanh tiến trình** hiển thị % upload rồi trạng thái đang xử lý.
 - **Tự phát hiện định dạng nguồn** từ đuôi file (chọn "Tự động", hỗ trợ cả
   `.yml`, `.htm`, `.markdown`, `.tex`...).
 - **Chuyển đổi từ URL**: dán link trang web → md/pdf/docx... (có chặn SSRF,
