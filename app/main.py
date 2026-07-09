@@ -6,9 +6,10 @@ import io
 import zipfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
+from .config import settings
 from .converters import ConversionError, convert, list_formats
 from .converters.registry import get_spec
 
@@ -16,6 +17,22 @@ BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE = BASE_DIR / "templates" / "index.html"
 
 app = FastAPI(title="Text Format Converter", version="0.1.0")
+
+
+@app.middleware("http")
+async def limit_upload_size(request: Request, call_next):
+    """Reject oversized uploads early based on the Content-Length header."""
+    if request.method == "POST":
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > settings.max_upload_bytes:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "detail": f"Upload too large. Maximum is "
+                    f"{settings.max_upload_mb} MB."
+                },
+            )
+    return await call_next(request)
 
 
 @app.get("/", response_class=HTMLResponse)

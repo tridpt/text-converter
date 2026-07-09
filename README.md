@@ -1,5 +1,9 @@
 # Text Format Converter
 
+[![CI](https://github.com/tridpt/text-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/tridpt/text-converter/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
+
 Web app (Python + FastAPI) chuyển đổi qua lại giữa nhiều định dạng file văn bản.
 
 ## Định dạng hỗ trợ
@@ -55,10 +59,38 @@ Endpoint `/api/convert` nhận 1 hoặc nhiều file (field `files`), `source`,
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+python -m app
 ```
 
 Mở http://127.0.0.1:8000 — API docs tại http://127.0.0.1:8000/docs
+
+Để dev có auto-reload: `uvicorn app.main:app --reload`
+
+## Cấu hình (biến môi trường)
+
+Sao chép `.env.example` và chỉnh nếu cần:
+
+| Biến | Mặc định | Mô tả |
+|------|----------|-------|
+| `HOST` | `127.0.0.1` | Interface bind (dùng `0.0.0.0` để mở ra mạng/Docker) |
+| `PORT` | `8000` | Cổng web server |
+| `MAX_UPLOAD_MB` | `25` | Giới hạn dung lượng mỗi request (MB) |
+
+## Chạy bằng Docker
+
+```bat
+docker build -t text-converter .
+docker run -p 8000:8000 text-converter
+```
+
+Mở http://127.0.0.1:8000
+
+## Chạy test
+
+```bat
+pip install pytest
+pytest -q
+```
 
 ## Thêm định dạng mới
 
