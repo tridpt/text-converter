@@ -61,6 +61,8 @@ _WRITERS: dict[str, Callable[[object], bytes]] = {}
 _BRIDGES: dict[tuple[str, str], Callable[[object], object]] = {}
 # Optional transform applied to a document (HTML) hub, e.g. table of contents.
 _TOC_TRANSFORMER: Callable[[str], str] | None = None
+# Optional HTML sanitizer applied to every document-family output.
+_HTML_SANITIZER: Callable[[str], str] | None = None
 
 
 def register_format(spec: FormatSpec) -> None:
@@ -71,6 +73,12 @@ def set_toc_transformer(func: Callable[[str], str]) -> None:
     """Register the function that injects a table of contents into HTML."""
     global _TOC_TRANSFORMER
     _TOC_TRANSFORMER = func
+
+
+def set_html_sanitizer(func: Callable[[str], str]) -> None:
+    """Register the function that strips active content from HTML output."""
+    global _HTML_SANITIZER
+    _HTML_SANITIZER = func
 
 
 def detect_format(filename: str) -> str:
@@ -173,6 +181,8 @@ def support_matrix() -> dict:
 
 
 def _apply_document_transforms(html: str, options: ConvertOptions) -> str:
+    if _HTML_SANITIZER is not None:
+        html = _HTML_SANITIZER(html)
     if options.toc and _TOC_TRANSFORMER is not None:
         html = _TOC_TRANSFORMER(html)
     return html

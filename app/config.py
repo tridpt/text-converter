@@ -25,6 +25,12 @@ class Settings:
         self.api_key: str = os.getenv("API_KEY", "").strip()
         # Per-IP request cap for conversion endpoints, per minute. 0 disables.
         self.rate_limit_per_minute: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "0"))
+        # Strip scripts / active content from HTML output (recommended on).
+        self.sanitize_html: bool = os.getenv("SANITIZE_HTML", "1") not in (
+            "0",
+            "false",
+            "False",
+        )
 
     @property
     def max_upload_bytes(self) -> int:

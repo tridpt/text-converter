@@ -53,7 +53,11 @@ ghi qua xhtml2pdf (giữ tùy chọn cỡ giấy/theme).
 
 ## Tính năng
 
-- **Kéo & thả file** + danh sách file đã chọn (thêm/xóa từng file).
+- **Song ngữ**: giao diện tiếng Việt / English (nút chuyển ở góc phải, nhớ lựa chọn).
+- **Kéo & thả file hoặc cả thư mục** (đệ quy) + danh sách file, nút xóa hết.
+- **Xem trước slide** (reveal.js) mở ở tab mới; PDF/HTML render trong khung.
+- **Chống nội dung độc hại**: tự loại `<script>`, iframe, thuộc tính `on*`,
+  URL `javascript:`/`data:` không phải ảnh khỏi HTML xuất ra.
 - **Xem trước** kết quả trước khi tải: text hiển thị trực tiếp, HTML/PDF
   render trong khung xem trước.
 - **Thanh tiến trình** hiển thị % upload rồi trạng thái đang xử lý.
@@ -128,6 +132,7 @@ Sao chép `.env.example` và chỉnh nếu cần:
 | `USE_PANDOC` | `1` | Dùng pandoc nếu có (`0` để tắt) |
 | `API_KEY` | *(trống)* | Nếu đặt, endpoint convert yêu cầu header `X-API-Key` |
 | `RATE_LIMIT_PER_MINUTE` | `0` | Giới hạn request/phút mỗi IP (`0` = tắt) |
+| `SANITIZE_HTML` | `1` | Loại script/nội dung động khỏi HTML xuất ra (`0` để tắt) |
 
 > Rate limit lưu trong bộ nhớ tiến trình — reset khi restart và không chia sẻ
 > giữa nhiều worker. Đủ dùng cho single-instance; nếu chạy nhiều instance nên

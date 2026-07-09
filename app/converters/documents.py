@@ -23,12 +23,14 @@ from odf.teletype import extractText
 from striprtf.striprtf import rtf_to_text
 from xhtml2pdf import pisa
 
+from ..config import settings
 from .registry import (
     ConversionError,
     ConvertOptions,
     FormatSpec,
     reader,
     register_format,
+    set_html_sanitizer,
     set_toc_transformer,
     writer,
 )
@@ -203,6 +205,34 @@ def add_table_of_contents(html: str) -> str:
 
 # Register TOC transformer with the registry (used when options.toc is set).
 set_toc_transformer(add_table_of_contents)
+
+
+# --- HTML sanitization (defense against malicious/active content) -----------
+_DANGEROUS_TAGS = {"script", "iframe", "object", "embed", "applet"}
+
+
+def sanitize_html(html: str) -> str:
+    """Strip scripts and other active content from an HTML fragment/document."""
+    if not settings.sanitize_html:
+        return html
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup.find_all(_DANGEROUS_TAGS):
+        tag.decompose()
+    for el in soup.find_all(True):
+        for attr in list(el.attrs):
+            low = attr.lower()
+            if low.startswith("on"):  # event handlers: onclick, onerror, ...
+                del el[attr]
+            elif low in ("href", "src", "xlink:href"):
+                value = str(el.get(attr, "")).strip().lower()
+                if value.startswith("javascript:") or value.startswith("vbscript:"):
+                    del el[attr]
+                elif value.startswith("data:") and not value.startswith("data:image/"):
+                    del el[attr]
+    return str(soup)
+
+
+set_html_sanitizer(sanitize_html)
 
 
 # --- Readers (bytes -> HTML string) -----------------------------------------

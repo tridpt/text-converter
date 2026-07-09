@@ -235,8 +235,10 @@ async def api_convert_url(
     options = _build_options(paper_size, toc, theme)
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
-            resp = await client.get(url, headers={"User-Agent": "text-converter/0.2"})
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=15.0, max_redirects=5
+        ) as client:
+            resp = await client.get(url, headers={"User-Agent": "text-converter/0.3"})
         _validate_public_url(str(resp.url))  # re-check after redirects
         resp.raise_for_status()
     except HTTPException:
@@ -245,6 +247,22 @@ async def api_convert_url(
         raise HTTPException(
             status_code=400, detail=f"Failed to fetch URL: {exc}"
         ) from exc
+
+    # Only accept textual/HTML documents — reject binaries, downloads, etc.
+    content_type = resp.headers.get("content-type", "").split(";")[0].strip().lower()
+    allowed = {
+        "text/html",
+        "application/xhtml+xml",
+        "text/plain",
+        "text/markdown",
+        "application/xml",
+        "text/xml",
+    }
+    if content_type and content_type not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"URL returned unsupported content type: {content_type}.",
+        )
 
     if len(resp.content) > settings.max_upload_bytes:
         raise HTTPException(

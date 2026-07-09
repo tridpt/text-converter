@@ -11,8 +11,11 @@
            min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:1.5rem; }
     .card { background:var(--card); border-radius:16px; padding:2rem; width:100%; max-width:600px;
             box-shadow:0 10px 40px rgba(0,0,0,.4); }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; }
     h1 { margin:0 0 .25rem; font-size:1.5rem; }
     p.sub { margin:0 0 1.25rem; color:var(--muted); font-size:.9rem; }
+    a { color:var(--accent); }
+    #lang { background:#0f172a; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:.35rem .5rem; font-size:.8rem; cursor:pointer; }
     label { display:block; font-size:.78rem; color:var(--muted); margin:.9rem 0 .3rem; text-transform:uppercase; letter-spacing:.05em; }
     input[type=url], select { width:100%; padding:.65rem; border-radius:8px; border:1px solid var(--line);
             background:#0f172a; color:var(--text); font-size:.92rem; }
@@ -27,12 +30,14 @@
     .tabs { display:flex; gap:.5rem; margin-bottom:1rem; }
     .tabs button { flex:1; padding:.55rem; background:#0f172a; color:var(--muted); border:1px solid var(--line); font-weight:500; }
     .tabs button.active { background:var(--accent); color:#04222e; border-color:var(--accent); }
-    /* Drop zone */
     .drop { border:2px dashed var(--line); border-radius:10px; padding:1.5rem; text-align:center;
             color:var(--muted); cursor:pointer; transition:.15s; font-size:.9rem; }
     .drop.over { border-color:var(--accent); background:rgba(56,189,248,.08); color:var(--text); }
     .drop strong { color:var(--accent); }
-    .filelist { list-style:none; margin:.75rem 0 0; padding:0; }
+    .filehdr { display:flex; justify-content:space-between; align-items:center; margin-top:.75rem; }
+    .filehdr span { font-size:.78rem; color:var(--muted); }
+    .filehdr button { background:transparent; color:var(--err); font-size:.78rem; border:1px solid var(--line); border-radius:6px; padding:.2rem .5rem; }
+    .filelist { list-style:none; margin:.4rem 0 0; padding:0; max-height:180px; overflow:auto; }
     .filelist li { display:flex; align-items:center; justify-content:space-between; gap:.5rem;
             background:#0f172a; border:1px solid var(--line); border-radius:8px; padding:.45rem .7rem; margin-top:.4rem; font-size:.85rem; }
     .filelist .rm { background:transparent; color:var(--err); font-size:1.1rem; padding:0 .3rem; line-height:1; }
@@ -42,7 +47,6 @@
     .checks input { width:auto; }
     details { margin-top:1rem; border:1px solid var(--line); border-radius:8px; padding:.6rem .8rem; }
     summary { cursor:pointer; font-size:.85rem; color:var(--muted); }
-    /* Progress */
     .progress { height:6px; background:#0f172a; border-radius:4px; overflow:hidden; margin-top:1rem; display:none; }
     .progress.show { display:block; }
     .progress .bar { height:100%; width:0; background:var(--accent); transition:width .2s; }
@@ -53,7 +57,6 @@
     .msg.ok { background:#064e3b; color:#a7f3d0; display:block; }
     .hint { font-size:.74rem; color:var(--muted); margin-top:.35rem; }
     .hidden { display:none; }
-    /* Preview */
     #preview { margin-top:1rem; display:none; }
     #preview h3 { font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 .5rem; }
     #preview pre { background:#0f172a; border:1px solid var(--line); border-radius:8px; padding:1rem;
@@ -64,54 +67,63 @@
 </head>
 <body>
   <div class="card">
-    <h1>Text Format Converter</h1>
-    <p class="sub">Chuyển đổi qua lại giữa nhiều định dạng tài liệu và dữ liệu.
-      <a href="/matrix" style="color:var(--accent)">Xem ma trận định dạng →</a></p>
-
-    <div class="tabs">
-      <button type="button" id="tab-file" class="active">Từ file</button>
-      <button type="button" id="tab-url">Từ URL</button>
+    <div class="top">
+      <div>
+        <h1 data-i18n="title">Text Format Converter</h1>
+        <p class="sub"><span data-i18n="subtitle">Chuyển đổi qua lại giữa nhiều định dạng tài liệu và dữ liệu.</span>
+          <a href="/matrix" data-i18n="matrixLink">Xem ma trận định dạng →</a></p>
+      </div>
+      <select id="lang" title="Language">
+        <option value="vi">VI</option>
+        <option value="en">EN</option>
+      </select>
     </div>
 
-    <!-- FILE MODE -->
+    <div class="tabs">
+      <button type="button" id="tab-file" class="active" data-i18n="tabFile">Từ file</button>
+      <button type="button" id="tab-url" data-i18n="tabUrl">Từ URL</button>
+    </div>
+
     <div id="form-file">
       <div class="drop" id="drop">
-        <strong>Kéo &amp; thả</strong> file vào đây, hoặc bấm để chọn
+        <strong data-i18n="dropStrong">Kéo &amp; thả</strong> <span data-i18n="dropText">file hoặc thư mục vào đây, hoặc bấm để chọn</span>
         <input type="file" id="file" multiple class="hidden">
+      </div>
+      <div class="filehdr">
+        <span id="filecount"></span>
+        <button type="button" id="clear" class="hidden" data-i18n="clearAll">Xóa hết</button>
       </div>
       <ul class="filelist" id="filelist"></ul>
 
       <div class="row">
         <div>
-          <label for="source">Từ định dạng</label>
+          <label data-i18n="fromFmt">Từ định dạng</label>
           <select id="source"></select>
         </div>
         <div>
-          <label for="target">Sang định dạng</label>
+          <label data-i18n="toFmt">Sang định dạng</label>
           <select id="target"></select>
         </div>
       </div>
 
       <div class="checks">
-        <label><input type="checkbox" id="merge"> Gộp nhiều file thành 1</label>
+        <label><input type="checkbox" id="merge"> <span data-i18n="merge">Gộp nhiều file thành 1</span></label>
       </div>
     </div>
 
-    <!-- URL MODE -->
     <div id="form-url" class="hidden">
-      <label for="url">Dán link trang web</label>
+      <label data-i18n="urlLabel">Dán link trang web</label>
       <input type="url" id="url" placeholder="https://example.com/article">
-      <label for="target-url">Sang định dạng</label>
+      <label data-i18n="toFmt">Sang định dạng</label>
       <select id="target-url"></select>
-      <p class="hint">Chỉ nhận URL http/https công khai. Kết quả là định dạng tài liệu (md, pdf, docx...).</p>
+      <p class="hint" data-i18n="urlHint">Chỉ nhận URL http/https công khai, trả về nội dung văn bản/HTML.</p>
     </div>
 
-    <!-- SHARED OPTIONS -->
     <details open>
-      <summary>Tùy chọn</summary>
+      <summary data-i18n="options">Tùy chọn</summary>
       <div class="row">
         <div>
-          <label for="theme">Theme (HTML/PDF)</label>
+          <label data-i18n="themeLabel">Theme (HTML/PDF)</label>
           <select id="theme">
             <option value="default">Default</option>
             <option value="github">GitHub</option>
@@ -120,7 +132,7 @@
           </select>
         </div>
         <div>
-          <label for="paper">Cỡ giấy (PDF)</label>
+          <label data-i18n="paperLabel">Cỡ giấy (PDF)</label>
           <select id="paper">
             <option>A4</option><option>Letter</option><option>Legal</option>
             <option>A3</option><option>A5</option>
@@ -128,73 +140,138 @@
         </div>
       </div>
       <div class="checks">
-        <label><input type="checkbox" id="toc"> Thêm mục lục (Table of Contents)</label>
+        <label><input type="checkbox" id="toc"> <span data-i18n="toc">Thêm mục lục (Table of Contents)</span></label>
       </div>
     </details>
 
     <div class="actions">
-      <button type="button" id="btn-preview">Xem trước</button>
-      <button type="button" id="btn">Chuyển đổi &amp; Tải về</button>
+      <button type="button" id="btn-preview" data-i18n="preview">Xem trước</button>
+      <button type="button" id="btn" data-i18n="convert">Chuyển đổi &amp; Tải về</button>
     </div>
 
     <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
     <div id="msg" class="msg"></div>
 
     <div id="preview">
-      <h3>Xem trước</h3>
+      <h3 data-i18n="previewTitle">Xem trước</h3>
       <div id="preview-body"></div>
     </div>
   </div>
 
   <script>
     const $ = id => document.getElementById(id);
+
+    // ---- i18n ----
+    const I18N = {
+      vi: {
+        title: "Text Format Converter",
+        subtitle: "Chuyển đổi qua lại giữa nhiều định dạng tài liệu và dữ liệu.",
+        matrixLink: "Xem ma trận định dạng →",
+        tabFile: "Từ file", tabUrl: "Từ URL",
+        dropStrong: "Kéo & thả", dropText: "file hoặc thư mục vào đây, hoặc bấm để chọn",
+        clearAll: "Xóa hết", fromFmt: "Từ định dạng", toFmt: "Sang định dạng",
+        merge: "Gộp nhiều file thành 1", urlLabel: "Dán link trang web",
+        urlHint: "Chỉ nhận URL http/https công khai, trả về nội dung văn bản/HTML.",
+        options: "Tùy chọn", themeLabel: "Theme (HTML/PDF)", paperLabel: "Cỡ giấy (PDF)",
+        toc: "Thêm mục lục (Table of Contents)", preview: "Xem trước",
+        convert: "Chuyển đổi & Tải về", previewTitle: "Xem trước",
+        auto: "Tự động (theo đuôi file)", famDoc: "Tài liệu", famData: "Dữ liệu",
+        processing: "Đang xử lý...", making: "Đang tạo...",
+        chooseFile: "Vui lòng chọn file.", enterUrl: "Vui lòng nhập URL.",
+        done: "Đã chuyển đổi xong: ", previewDone: "Đã tạo bản xem trước.",
+        slideOpened: "Đã mở slide ở tab mới.",
+        noPreview: v => `Định dạng ${v.toUpperCase()} không xem trước trực tiếp được. Bấm "Tải về".`,
+        zipNoPreview: 'Nhiều file (không gộp) sẽ xuất ra .zip — không xem trước được.',
+        files: n => `${n} file đã chọn`, truncated: "\n... (đã cắt bớt)",
+        connErr: "Lỗi kết nối: ",
+      },
+      en: {
+        title: "Text Format Converter",
+        subtitle: "Convert back and forth between many document and data formats.",
+        matrixLink: "View format matrix →",
+        tabFile: "From file", tabUrl: "From URL",
+        dropStrong: "Drag & drop", dropText: "files or a folder here, or click to choose",
+        clearAll: "Clear all", fromFmt: "From format", toFmt: "To format",
+        merge: "Merge files into one", urlLabel: "Paste a web link",
+        urlHint: "Only public http/https URLs returning text/HTML are accepted.",
+        options: "Options", themeLabel: "Theme (HTML/PDF)", paperLabel: "Paper size (PDF)",
+        toc: "Add a table of contents", preview: "Preview",
+        convert: "Convert & Download", previewTitle: "Preview",
+        auto: "Auto (by file extension)", famDoc: "Documents", famData: "Data",
+        processing: "Processing...", making: "Generating...",
+        chooseFile: "Please choose a file.", enterUrl: "Please enter a URL.",
+        done: "Converted: ", previewDone: "Preview generated.",
+        slideOpened: "Slides opened in a new tab.",
+        noPreview: v => `${v.toUpperCase()} cannot be previewed directly. Click "Download".`,
+        zipNoPreview: 'Multiple files (not merged) produce a .zip — no preview available.',
+        files: n => `${n} file(s) selected`, truncated: "\n... (truncated)",
+        connErr: "Connection error: ",
+      },
+    };
+    let lang = localStorage.getItem("lang") || "vi";
+    const T = () => I18N[lang];
+
+    function applyI18n() {
+      document.documentElement.lang = lang;
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const val = T()[el.getAttribute("data-i18n")];
+        if (typeof val === "string") el.textContent = val;
+      });
+      renderFiles();
+      if (formats.length) { fillSelects(); }
+    }
+
+    // ---- state ----
     const msg = $('msg'), btn = $('btn'), btnPrev = $('btn-preview');
     const progress = $('progress'), bar = $('bar');
     let mode = 'file';
     let selectedFiles = [];
-    let cached = null;               // {blob, filename, target} of last conversion
+    let cached = null;
+    let formats = [];
     const TEXT_TARGETS = new Set(['txt','md','html','json','yaml','csv','xml','latex','rtf']);
-    const NO_PREVIEW = new Set(['docx','odt']);
+    const NO_PREVIEW = new Set(['docx','odt','epub','pptx']);
 
-    // ---- format helpers ----
     function fmtSize(n) {
       if (n < 1024) return n + ' B';
       if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
       return (n/1024/1024).toFixed(2) + ' MB';
     }
-    function fill(sel, items, withAuto) {
+    function fillOne(sel, items, withAuto) {
+      const cur = sel.value;
       sel.innerHTML = '';
       if (withAuto) {
         const o = document.createElement('option');
-        o.value = 'auto'; o.textContent = 'Tự động (theo đuôi file)';
-        sel.appendChild(o);
+        o.value = 'auto'; o.textContent = T().auto; sel.appendChild(o);
       }
       let last = null, group = null;
       items.forEach(f => {
         if (f.family !== last) {
           group = document.createElement('optgroup');
-          group.label = f.family === 'document' ? 'Tài liệu' : 'Dữ liệu';
+          group.label = f.family === 'document' ? T().famDoc : T().famData;
           sel.appendChild(group); last = f.family;
         }
         const opt = document.createElement('option');
         opt.value = f.name; opt.textContent = `${f.label} (${f.extension})`;
         group.appendChild(opt);
       });
+      if (cur) sel.value = cur;
+    }
+    function fillSelects() {
+      fillOne($('source'), formats.filter(f => f.readable), true);
+      fillOne($('target'), formats.filter(f => f.writable), false);
+      fillOne($('target-url'), formats.filter(f => f.writable && f.family === 'document'), false);
+      if (!$('target').value && $('target').querySelector('option[value="pdf"]')) $('target').value = 'pdf';
+      if (!$('target-url').value && $('target-url').querySelector('option[value="pdf"]')) $('target-url').value = 'pdf';
     }
     function show(text, kind) { msg.textContent = text; msg.className = 'msg ' + kind; }
     function invalidate() { cached = null; }
 
     async function load() {
       const data = await (await fetch('/api/formats')).json();
-      const fmts = data.formats;
-      fill($('source'), fmts.filter(f => f.readable), true);
-      fill($('target'), fmts.filter(f => f.writable), false);
-      fill($('target-url'), fmts.filter(f => f.writable && f.family === 'document'), false);
-      if ($('target').querySelector('option[value="pdf"]')) $('target').value = 'pdf';
-      if ($('target-url').querySelector('option[value="pdf"]')) $('target-url').value = 'pdf';
+      formats = data.formats;
+      fillSelects();
     }
 
-    // ---- tabs ----
     function setMode(m) {
       mode = m; invalidate();
       $('tab-file').classList.toggle('active', m === 'file');
@@ -205,7 +282,7 @@
     $('tab-file').onclick = () => setMode('file');
     $('tab-url').onclick = () => setMode('url');
 
-    // ---- drag & drop + file list ----
+    // ---- drag & drop (files + folders) ----
     const drop = $('drop');
     drop.onclick = () => $('file').click();
     $('file').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
@@ -213,7 +290,33 @@
       drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
     ['dragleave','drop'].forEach(ev =>
       drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-    drop.addEventListener('drop', e => { if (e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+    drop.addEventListener('drop', async e => {
+      const items = e.dataTransfer.items;
+      const entries = items ? [...items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean) : [];
+      if (entries.length && entries.some(en => en.isDirectory)) {
+        const files = [];
+        for (const en of entries) await readEntry(en, files);
+        addFiles(files);
+      } else if (e.dataTransfer.files) {
+        addFiles(e.dataTransfer.files);
+      }
+    });
+
+    function readEntry(entry, files) {
+      return new Promise(resolve => {
+        if (entry.isFile) {
+          entry.file(f => { files.push(f); resolve(); }, () => resolve());
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          const batch = () => reader.readEntries(async ents => {
+            if (!ents.length) { resolve(); return; }
+            for (const en of ents) await readEntry(en, files);
+            batch();
+          }, () => resolve());
+          batch();
+        } else resolve();
+      });
+    }
 
     function addFiles(list) {
       for (const f of list) {
@@ -223,31 +326,33 @@
       invalidate(); renderFiles();
     }
     function removeFile(i) { selectedFiles.splice(i, 1); invalidate(); renderFiles(); }
+    $('clear').onclick = () => { selectedFiles = []; invalidate(); renderFiles(); };
     function renderFiles() {
-      const ul = $('filelist'); ul.innerHTML = '';
+      const ul = $('filelist'); if (!ul) return;
+      ul.innerHTML = '';
+      $('filecount').textContent = selectedFiles.length ? T().files(selectedFiles.length) : '';
+      $('clear').classList.toggle('hidden', selectedFiles.length === 0);
       selectedFiles.forEach((f, i) => {
         const li = document.createElement('li');
         li.innerHTML = `<span>${f.name} <span class="sz">${fmtSize(f.size)}</span></span>`;
         const b = document.createElement('button');
-        b.className = 'rm'; b.textContent = '×'; b.title = 'Xóa';
+        b.className = 'rm'; b.textContent = '×';
         b.onclick = () => removeFile(i);
         li.appendChild(b); ul.appendChild(li);
       });
     }
 
-    // invalidate cache on any option change
     ['source','target','target-url','theme','paper','merge','toc','url']
       .forEach(id => { const el = $(id); if (el) el.addEventListener('change', invalidate); });
     $('url').addEventListener('input', invalidate);
 
-    // ---- build request ----
     function buildRequest() {
       const fd = new FormData();
       fd.append('theme', $('theme').value);
       fd.append('paper_size', $('paper').value);
       fd.append('toc', $('toc').checked);
       if (mode === 'file') {
-        if (!selectedFiles.length) throw new Error('Vui lòng chọn file.');
+        if (!selectedFiles.length) throw new Error(T().chooseFile);
         for (const f of selectedFiles) fd.append('files', f);
         fd.append('source', $('source').value);
         fd.append('target', $('target').value);
@@ -255,7 +360,7 @@
         return { fd, endpoint: '/api/convert', target: $('target').value };
       }
       const url = $('url').value.trim();
-      if (!url) throw new Error('Vui lòng nhập URL.');
+      if (!url) throw new Error(T().enterUrl);
       fd.append('url', url);
       fd.append('target', $('target-url').value);
       return { fd, endpoint: '/api/convert-url', target: $('target-url').value };
@@ -265,7 +370,6 @@
       return mode === 'file' && selectedFiles.length > 1 && !$('merge').checked;
     }
 
-    // ---- XHR conversion with progress ----
     function runConversion() {
       const { fd, endpoint, target } = buildRequest();
       progress.classList.add('show'); progress.classList.remove('proc'); bar.style.width = '0';
@@ -276,24 +380,23 @@
         xhr.upload.onprogress = e => {
           if (e.lengthComputable) bar.style.width = (e.loaded / e.total * 100) + '%';
         };
-        xhr.upload.onload = () => progress.classList.add('proc');  // server is processing
+        xhr.upload.onload = () => progress.classList.add('proc');
         xhr.onload = () => {
           progress.classList.remove('proc'); bar.style.width = '100%';
           setTimeout(() => progress.classList.remove('show'), 400);
           if (xhr.status >= 200 && xhr.status < 300) {
             const dispo = xhr.getResponseHeader('Content-Disposition') || '';
             const m = dispo.match(/filename="?([^"]+)"?/);
-            resolve({ blob: xhr.response, filename: m ? m[1] : 'converted', target,
-                      type: xhr.getResponseHeader('Content-Type') });
+            resolve({ blob: xhr.response, filename: m ? m[1] : 'converted', target });
           } else {
             xhr.response.text().then(t => {
-              let d = 'Chuyển đổi thất bại.';
+              let d = 'Error';
               try { d = JSON.parse(t).detail || d; } catch (_) {}
               reject(new Error(d));
             });
           }
         };
-        xhr.onerror = () => { progress.classList.remove('show','proc'); reject(new Error('Lỗi kết nối')); };
+        xhr.onerror = () => { progress.classList.remove('show','proc'); reject(new Error(T().connErr)); };
         xhr.send(fd);
       });
     }
@@ -304,37 +407,38 @@
       a.href = u; a.download = filename; a.click();
       URL.revokeObjectURL(u);
     }
-
     async function getResult() {
       if (cached) return cached;
       cached = await runConversion();
       return cached;
     }
 
-    // ---- buttons ----
     btn.onclick = async () => {
       msg.className = 'msg';
       btn.disabled = btnPrev.disabled = true;
-      const prevText = btn.textContent; btn.textContent = 'Đang xử lý...';
+      const prev = btn.textContent; btn.textContent = T().processing;
       try {
         const r = await getResult();
         triggerDownload(r.blob, r.filename);
-        show('Đã chuyển đổi xong: ' + r.filename, 'ok');
+        show(T().done + r.filename, 'ok');
       } catch (e) { show(e.message, 'error'); }
-      finally { btn.disabled = btnPrev.disabled = false; btn.textContent = prevText; }
+      finally { btn.disabled = btnPrev.disabled = false; btn.textContent = prev; }
     };
 
     btnPrev.onclick = async () => {
       msg.className = 'msg';
       const pv = $('preview'), body = $('preview-body');
-      if (producesZip()) {
-        show('Nhiều file (không gộp) sẽ xuất ra .zip — không xem trước được. Hãy tick "Gộp" hoặc chọn 1 file.', 'error');
-        return;
-      }
+      if (producesZip()) { show(T().zipNoPreview, 'error'); return; }
       btn.disabled = btnPrev.disabled = true;
-      const t0 = btnPrev.textContent; btnPrev.textContent = 'Đang tạo...';
+      const t0 = btnPrev.textContent; btnPrev.textContent = T().making;
       try {
         const r = await getResult();
+        if (r.target === 'revealjs') {
+          window.open(URL.createObjectURL(r.blob), '_blank');
+          pv.style.display = 'none';
+          show(T().slideOpened, 'ok');
+          return;
+        }
         body.innerHTML = ''; pv.style.display = 'block';
         if (r.target === 'pdf') {
           const f = document.createElement('iframe');
@@ -344,22 +448,25 @@
           f.setAttribute('sandbox', '');
           f.srcdoc = await r.blob.text(); body.appendChild(f);
         } else if (NO_PREVIEW.has(r.target)) {
-          body.innerHTML = '<p class="note">Định dạng ' + r.target.toUpperCase()
-            + ' không xem trước trực tiếp được. Bấm "Tải về" để mở bằng ứng dụng.</p>';
+          body.innerHTML = '<p class="note">' + T().noPreview(r.target) + '</p>';
         } else if (TEXT_TARGETS.has(r.target)) {
           const pre = document.createElement('pre');
           let text = await r.blob.text();
-          if (text.length > 20000) text = text.slice(0, 20000) + '\n... (đã cắt bớt)';
+          if (text.length > 20000) text = text.slice(0, 20000) + T().truncated;
           pre.textContent = text; body.appendChild(pre);
         } else {
-          body.innerHTML = '<p class="note">Không xem trước được định dạng này.</p>';
+          body.innerHTML = '<p class="note">—</p>';
         }
-        show('Đã tạo bản xem trước.', 'ok');
+        show(T().previewDone, 'ok');
       } catch (e) { show(e.message, 'error'); pv.style.display = 'none'; }
       finally { btn.disabled = btnPrev.disabled = false; btnPrev.textContent = t0; }
     };
 
-    load();
+    // ---- language switch ----
+    $('lang').value = lang;
+    $('lang').onchange = () => { lang = $('lang').value; localStorage.setItem('lang', lang); applyI18n(); };
+
+    load().then(applyI18n);
   </script>
 </body>
 </html>

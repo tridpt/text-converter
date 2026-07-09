@@ -281,6 +281,28 @@ def test_md_to_pptx():
     assert out[:2] == b"PK"
 
 
+# --- HTML sanitization ------------------------------------------------------
+def test_sanitize_removes_script_and_handlers():
+    src = b'<h1>Hi</h1><script>alert(1)</script><p onclick="x()">t</p>'
+    out = convert(src, "html", "html").decode()
+    assert "<script" not in out
+    assert "onclick" not in out
+    assert "Hi" in out
+
+
+def test_sanitize_removes_javascript_href():
+    out = convert(b'<a href="javascript:alert(1)">x</a>', "html", "html").decode()
+    assert "javascript:" not in out
+
+
+def test_sanitize_keeps_image_data_uri():
+    from base64 import b64encode
+
+    uri = "data:image/png;base64," + b64encode(_png_bytes()).decode()
+    out = convert(f'<img src="{uri}">'.encode(), "html", "html").decode()
+    assert "data:image/png" in out
+
+
 # --- Corrupt input handling -------------------------------------------------
 def test_corrupt_input_raises_conversion_error():
     with pytest.raises(ConversionError):
