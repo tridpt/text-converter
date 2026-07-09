@@ -40,8 +40,7 @@ async def limit_upload_size(request: Request, call_next):
             return JSONResponse(
                 status_code=413,
                 content={
-                    "detail": f"Upload too large. Maximum is "
-                    f"{settings.max_upload_mb} MB."
+                    "detail": f"Upload too large. Maximum is {settings.max_upload_mb} MB."
                 },
             )
     return await call_next(request)
@@ -198,15 +197,15 @@ async def api_convert_url(
 
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
-            resp = await client.get(
-                url, headers={"User-Agent": "text-converter/0.2"}
-            )
+            resp = await client.get(url, headers={"User-Agent": "text-converter/0.2"})
         _validate_public_url(str(resp.url))  # re-check after redirects
         resp.raise_for_status()
     except HTTPException:
         raise
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {exc}") from exc
+        raise HTTPException(
+            status_code=400, detail=f"Failed to fetch URL: {exc}"
+        ) from exc
 
     if len(resp.content) > settings.max_upload_bytes:
         raise HTTPException(

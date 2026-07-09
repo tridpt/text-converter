@@ -9,19 +9,19 @@ import base64
 import html as html_lib
 import io
 
-import markdown as md_lib
 import mammoth
+import markdown as md_lib
 import pdfplumber
 from bs4 import BeautifulSoup, NavigableString, Tag
 from docx import Document
 from docx.shared import Inches
 from markdownify import markdownify
+from odf import text as odf_text
+from odf.opendocument import OpenDocumentText
+from odf.opendocument import load as odf_load
+from odf.teletype import extractText
 from striprtf.striprtf import rtf_to_text
 from xhtml2pdf import pisa
-
-from odf.opendocument import OpenDocumentText, load as odf_load
-from odf import text as odf_text
-from odf.teletype import extractText
 
 from .registry import (
     ConversionError,
@@ -48,7 +48,9 @@ register_format(
     )
 )
 register_format(FormatSpec("pdf", "document", "PDF", ".pdf", "application/pdf", True))
-register_format(FormatSpec("rtf", "document", "Rich Text (RTF)", ".rtf", "application/rtf", False))
+register_format(
+    FormatSpec("rtf", "document", "Rich Text (RTF)", ".rtf", "application/rtf", False)
+)
 register_format(
     FormatSpec(
         "odt",
@@ -59,7 +61,27 @@ register_format(
         True,
     )
 )
-register_format(FormatSpec("latex", "document", "LaTeX", ".tex", "application/x-tex", False))
+register_format(
+    FormatSpec("latex", "document", "LaTeX", ".tex", "application/x-tex", False)
+)
+# The following formats are handled by Pandoc only (see pandoc_ext.py). They
+# appear as readable/writable in the catalogue only when Pandoc is available.
+register_format(
+    FormatSpec("epub", "document", "EPUB (ebook)", ".epub", "application/epub+zip", True)
+)
+register_format(
+    FormatSpec("revealjs", "document", "Reveal.js slides", ".html", "text/html", False)
+)
+register_format(
+    FormatSpec(
+        "pptx",
+        "document",
+        "PowerPoint slides (PPTX)",
+        ".pptx",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        True,
+    )
+)
 
 
 # --- Helpers ----------------------------------------------------------------
@@ -123,9 +145,7 @@ def _wrap_html_document(
     return (
         "<!DOCTYPE html>\n<html>\n<head>\n"
         '<meta charset="utf-8">\n'
-        f"<style>{css}</style>\n</head>\n<body>\n"
-        + body_html
-        + "\n</body>\n</html>\n"
+        f"<style>{css}</style>\n</head>\n<body>\n" + body_html + "\n</body>\n</html>\n"
     )
 
 
@@ -164,15 +184,12 @@ def add_table_of_contents(html: str) -> str:
     min_level = min(level for level, _, _ in entries)
     items = []
     for level, text, anchor in entries:
-        indent = "margin-left:{}px".format((level - min_level) * 20)
+        indent = f"margin-left:{(level - min_level) * 20}px"
         items.append(
-            f'<li style="{indent}"><a href="#{anchor}">'
-            f"{html_lib.escape(text)}</a></li>"
+            f'<li style="{indent}"><a href="#{anchor}">{html_lib.escape(text)}</a></li>'
         )
     toc = (
-        '<div class="toc"><strong>Contents</strong><ul>'
-        + "".join(items)
-        + "</ul></div>"
+        '<div class="toc"><strong>Contents</strong><ul>' + "".join(items) + "</ul></div>"
     )
 
     target = soup.body or soup
@@ -297,7 +314,9 @@ def write_txt(html: str, options: ConvertOptions | None = None) -> bytes:
         br.replace_with("\n")
     blocks = soup.find_all(_BLOCK_TAGS | _HEADING_TAGS)
     if blocks:
-        text = "\n\n".join(b.get_text(strip=True) for b in blocks if b.get_text(strip=True))
+        text = "\n\n".join(
+            b.get_text(strip=True) for b in blocks if b.get_text(strip=True)
+        )
     else:
         text = soup.get_text("\n")
     return (text.strip() + "\n").encode("utf-8")
@@ -591,12 +610,12 @@ def write_latex(html: str, options: ConvertOptions | None = None) -> bytes:
                     f"\\begin{{{env}}}\n" + "\n".join(items) + f"\n\\end{{{env}}}"
                 )
         elif name == "pre":
-            body_parts.append(
-                "\\begin{verbatim}\n" + el.get_text() + "\n\\end{verbatim}"
-            )
+            body_parts.append("\\begin{verbatim}\n" + el.get_text() + "\n\\end{verbatim}")
         elif name == "blockquote":
             body_parts.append(
-                "\\begin{quote}\n" + _latex_escape(el.get_text(strip=True)) + "\n\\end{quote}"
+                "\\begin{quote}\n"
+                + _latex_escape(el.get_text(strip=True))
+                + "\n\\end{quote}"
             )
         else:  # paragraph
             text = el.get_text(strip=True)

@@ -1,0 +1,15 @@
+# Cấu hình ruff cho dự án text-converter.
+# Bắt các lỗi thật (import thừa, biến chưa dùng, sắp xếp import...) và dùng
+# ruff làm formatter thay cho black.
+
+line-length = 90
+target-version = "py313"
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",  # độ dài dòng - có chuỗi HTML/CSS và tiếng Việt dài
+    "B008",  # FastAPI dùng Depends()/File()/Form() làm giá trị mặc định
+]
+
+exclude = [".venv", "build", "dist"]

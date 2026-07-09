@@ -12,10 +12,10 @@ from app.converters import (
     convert,
     detect_format,
     list_formats,
+    pandoc_ext,
     read_as_document_html,
     render_document,
 )
-from app.converters import pandoc_ext
 
 pandoc_only = pytest.mark.skipif(
     not pandoc_ext.PANDOC_AVAILABLE, reason="pandoc binary not available"
@@ -171,7 +171,9 @@ def test_detect_format_unknown():
 
 # --- Convert options --------------------------------------------------------
 def test_toc_option_adds_table_of_contents():
-    out = convert(b"# One\n\n## Two\n\ntext", "md", "html", ConvertOptions(toc=True)).decode()
+    out = convert(
+        b"# One\n\n## Two\n\ntext", "md", "html", ConvertOptions(toc=True)
+    ).decode()
     assert 'class="toc"' in out
     assert 'href="#one"' in out
     assert 'id="one"' in out
@@ -240,6 +242,49 @@ def test_html_table_to_latex_uses_tabular():
         "latex",
     ).decode()
     assert "tabular" in out or "longtable" in out
+
+
+# --- Spreadsheets (XLSX / ODS) ----------------------------------------------
+def test_json_to_xlsx_and_back():
+    src = json.dumps([{"name": "Al", "age": 30}, {"name": "Bo", "age": 25}]).encode()
+    xlsx = convert(src, "json", "xlsx")
+    assert xlsx[:2] == b"PK"
+    back = json.loads(convert(xlsx, "xlsx", "json"))
+    assert [r["name"] for r in back] == ["Al", "Bo"]
+
+
+def test_csv_to_ods_and_back():
+    ods = convert(b"name,age\nAl,30\nBo,25\n", "csv", "ods")
+    assert ods[:2] == b"PK"
+    back = json.loads(convert(ods, "ods", "json"))
+    assert back[0]["name"] == "Al"
+
+
+# --- Pandoc-only new document formats ---------------------------------------
+@pandoc_only
+def test_md_to_epub_and_back():
+    epub = convert(b"# Chapter\n\nBody text", "md", "epub")
+    assert epub[:2] == b"PK"  # epub is a zip container
+    back = convert(epub, "epub", "md").decode()
+    assert "Chapter" in back
+
+
+@pandoc_only
+def test_md_to_revealjs_slides():
+    out = convert(b"# Slide 1\n\nHi\n\n# Slide 2\n\nBye", "md", "revealjs").decode()
+    assert "reveal" in out.lower()
+
+
+@pandoc_only
+def test_md_to_pptx():
+    out = convert(b"# Slide 1\n\nHi\n\n# Slide 2\n\nBye", "md", "pptx")
+    assert out[:2] == b"PK"
+
+
+# --- Corrupt input handling -------------------------------------------------
+def test_corrupt_input_raises_conversion_error():
+    with pytest.raises(ConversionError):
+        convert(b"this is definitely not a valid xlsx file", "xlsx", "json")
 
 
 # --- Error handling ---------------------------------------------------------

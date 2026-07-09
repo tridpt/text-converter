@@ -22,19 +22,31 @@ from bs4 import BeautifulSoup
 from ..config import settings
 from .registry import ConvertOptions, reader, writer
 
-# Map our canonical format ids to Pandoc format names.
-_PANDOC_IN = {"latex": "latex", "docx": "docx", "odt": "odt"}
-_PANDOC_OUT = {
-    "latex": "latex",
-    "docx": "docx",
-    "odt": "odt",
-    "rtf": "rtf",
-    "md": "gfm",  # GitHub-flavoured markdown keeps tables
+_REVEALJS_URL = "https://cdn.jsdelivr.net/npm/reveal.js@4"
+
+# Readers: our format id -> (pandoc input format, temp file extension).
+_READ_CONFIG = {
+    "latex": ("latex", ".tex"),
+    "docx": ("docx", ".docx"),
+    "odt": ("odt", ".odt"),
+    "epub": ("epub", ".epub"),
 }
-_BINARY_OUT = {"docx", "odt"}
-# Text formats that need a complete standalone document (header/preamble),
-# otherwise Pandoc emits only a body fragment.
-_STANDALONE_OUT = {"latex", "rtf"}
+
+# Writers: our format id -> (pandoc output format, is_binary, extra pandoc args).
+_WRITE_CONFIG = {
+    "latex": ("latex", False, ["--standalone"]),
+    "docx": ("docx", True, []),
+    "odt": ("odt", True, []),
+    "rtf": ("rtf", False, ["--standalone"]),
+    "md": ("gfm", False, []),  # GitHub-flavoured markdown keeps tables
+    "epub": ("epub3", True, ["--standalone"]),
+    "revealjs": (
+        "revealjs",
+        False,
+        ["--standalone", "-V", f"revealjs-url={_REVEALJS_URL}"],
+    ),
+    "pptx": ("pptx", True, []),
+}
 
 
 def _pandoc_available() -> bool:
@@ -98,14 +110,11 @@ def _read_with_pandoc(data: bytes, fmt: str, ext: str) -> str:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def _write_with_pandoc(html: str, fmt: str, binary: bool, standalone: bool) -> bytes:
+def _write_with_pandoc(html: str, fmt: str, binary: bool, extra_args: list[str]) -> bytes:
     import pypandoc
 
-    extra_args = ["--standalone"] if standalone else []
-
     if binary:
-        suffix = "." + fmt
-        fd, out_path = tempfile.mkstemp(suffix=suffix, prefix="tc_pandoc_")
+        fd, out_path = tempfile.mkstemp(suffix=f".{fmt}", prefix="tc_pandoc_")
         os.close(fd)
         try:
             pypandoc.convert_text(
@@ -123,28 +132,24 @@ def _write_with_pandoc(html: str, fmt: str, binary: bool, standalone: bool) -> b
 
 
 # --- Registration (only when Pandoc is usable) ------------------------------
+def _make_reader(fmt: str, pandoc_fmt: str, ext: str):
+    @reader(fmt)
+    def _r(data: bytes) -> str:
+        return _read_with_pandoc(data, pandoc_fmt, ext)
+
+    return _r
+
+
+def _make_writer(fmt: str, pandoc_fmt: str, binary: bool, extra_args: list[str]):
+    @writer(fmt)
+    def _w(html: str, options: ConvertOptions | None = None) -> bytes:
+        return _write_with_pandoc(html, pandoc_fmt, binary, extra_args)
+
+    return _w
+
+
 if PANDOC_AVAILABLE:
-
-    @reader("latex")
-    def read_latex(data: bytes) -> str:
-        return _read_with_pandoc(data, "latex", ".tex")
-
-    @reader("docx")
-    def read_docx_pandoc(data: bytes) -> str:
-        return _read_with_pandoc(data, "docx", ".docx")
-
-    @reader("odt")
-    def read_odt_pandoc(data: bytes) -> str:
-        return _read_with_pandoc(data, "odt", ".odt")
-
-    def _make_writer(fmt: str, pandoc_fmt: str, binary: bool, standalone: bool):
-        @writer(fmt)
-        def _w(html: str, options: ConvertOptions | None = None) -> bytes:
-            return _write_with_pandoc(html, pandoc_fmt, binary, standalone)
-
-        return _w
-
-    for _name, _pfmt in _PANDOC_OUT.items():
-        _make_writer(
-            _name, _pfmt, _name in _BINARY_OUT, _name in _STANDALONE_OUT
-        )
+    for _name, (_pfmt, _ext) in _READ_CONFIG.items():
+        _make_reader(_name, _pfmt, _ext)
+    for _name, (_pfmt, _binary, _args) in _WRITE_CONFIG.items():
+        _make_writer(_name, _pfmt, _binary, _args)

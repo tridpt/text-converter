@@ -29,3 +29,4 @@ pypandoc==1.14
 # Data formats
 PyYAML==6.0.2
 tomli-w==1.1.0
+openpyxl==3.1.5

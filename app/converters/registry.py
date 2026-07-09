@@ -13,9 +13,9 @@ within the same family without writing an N x N matrix of converters.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Optional
 
 
 class ConversionError(Exception):
@@ -24,25 +24,25 @@ class ConversionError(Exception):
 
 @dataclass(frozen=True)
 class FormatSpec:
-    name: str          # canonical format id, e.g. "md"
-    family: str        # "document" or "data"
-    label: str         # human friendly name
-    extension: str     # default file extension (with dot)
-    mime: str          # mime type for downloads
-    binary: bool       # True if the output is binary (e.g. pdf, docx)
+    name: str  # canonical format id, e.g. "md"
+    family: str  # "document" or "data"
+    label: str  # human friendly name
+    extension: str  # default file extension (with dot)
+    mime: str  # mime type for downloads
+    binary: bool  # True if the output is binary (e.g. pdf, docx)
 
 
 @dataclass
 class ConvertOptions:
     """User-selectable options that influence how output is rendered."""
 
-    paper_size: str = "A4"      # A4, Letter, Legal, A3, A5 (PDF only)
-    toc: bool = False           # prepend a table of contents (documents)
-    theme: str = "default"      # CSS theme for HTML/PDF output
+    paper_size: str = "A4"  # A4, Letter, Legal, A3, A5 (PDF only)
+    toc: bool = False  # prepend a table of contents (documents)
+    theme: str = "default"  # CSS theme for HTML/PDF output
 
 
 # Extra file-extension aliases mapped to canonical format names.
-_EXTENSION_ALIASES: Dict[str, str] = {
+_EXTENSION_ALIASES: dict[str, str] = {
     ".yml": "yaml",
     ".htm": "html",
     ".markdown": "md",
@@ -53,14 +53,14 @@ _EXTENSION_ALIASES: Dict[str, str] = {
 
 
 # Registries -----------------------------------------------------------------
-_FORMATS: Dict[str, FormatSpec] = {}
-_READERS: Dict[str, Callable[[bytes], object]] = {}
-_WRITERS: Dict[str, Callable[[object], bytes]] = {}
+_FORMATS: dict[str, FormatSpec] = {}
+_READERS: dict[str, Callable[[bytes], object]] = {}
+_WRITERS: dict[str, Callable[[object], bytes]] = {}
 # Bridge functions convert a source family's hub into a target family's hub,
 # keyed by (source_family, target_family).
-_BRIDGES: Dict[tuple[str, str], Callable[[object], object]] = {}
+_BRIDGES: dict[tuple[str, str], Callable[[object], object]] = {}
 # Optional transform applied to a document (HTML) hub, e.g. table of contents.
-_TOC_TRANSFORMER: Optional[Callable[[str], str]] = None
+_TOC_TRANSFORMER: Callable[[str], str] | None = None
 
 
 def register_format(spec: FormatSpec) -> None:
@@ -144,8 +144,21 @@ def _apply_document_transforms(html: str, options: ConvertOptions) -> str:
     return html
 
 
+def _read(source: str, data: bytes) -> object:
+    """Run a reader, turning unexpected parse failures into ConversionError."""
+    try:
+        return _READERS[source](data)
+    except ConversionError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise ConversionError(
+            f"Could not read the {source} file — it may be corrupt or in an "
+            f"unexpected format ({exc})."
+        ) from exc
+
+
 def convert(
-    data: bytes, source: str, target: str, options: Optional[ConvertOptions] = None
+    data: bytes, source: str, target: str, options: ConvertOptions | None = None
 ) -> bytes:
     """Convert ``data`` from ``source`` format to ``target`` format."""
     options = options or ConvertOptions()
@@ -157,7 +170,7 @@ def convert(
     if target not in _WRITERS:
         raise ConversionError(f"Cannot write to format: {target!r}")
 
-    hub = _READERS[source](data)
+    hub = _read(source, data)
 
     if src.family != tgt.family:
         bridge = _BRIDGES.get((src.family, tgt.family))
@@ -183,7 +196,7 @@ def read_as_document_html(data: bytes, source: str) -> str:
     spec = get_spec(source)
     if source not in _READERS:
         raise ConversionError(f"Cannot read from format: {source!r}")
-    hub = _READERS[source](data)
+    hub = _read(source, data)
     if spec.family == "document":
         return hub
     bridge = _BRIDGES.get((spec.family, "document"))
@@ -193,15 +206,14 @@ def read_as_document_html(data: bytes, source: str) -> str:
 
 
 def render_document(
-    html: str, target: str, options: Optional[ConvertOptions] = None
+    html: str, target: str, options: ConvertOptions | None = None
 ) -> bytes:
     """Write an HTML document hub to ``target`` (must be a document format)."""
     options = options or ConvertOptions()
     tgt = get_spec(target)
     if tgt.family != "document":
         raise ConversionError(
-            f"Merging/URL output is only supported for document formats, "
-            f"not {target!r}."
+            f"Merging/URL output is only supported for document formats, not {target!r}."
         )
     if target not in _WRITERS:
         raise ConversionError(f"Cannot write to format: {target!r}")

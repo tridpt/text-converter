@@ -13,12 +13,18 @@ import tomllib
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
+import openpyxl
 import tomli_w
 import yaml
+from odf.opendocument import OpenDocumentSpreadsheet
+from odf.opendocument import load as odf_load
+from odf.table import Table, TableCell, TableRow
+from odf.teletype import extractText
+from odf.text import P
 
 from .registry import (
-    FormatSpec,
     ConversionError,
+    FormatSpec,
     reader,
     register_bridge,
     register_format,
@@ -31,6 +37,26 @@ register_format(FormatSpec("yaml", "data", "YAML", ".yaml", "application/x-yaml"
 register_format(FormatSpec("csv", "data", "CSV", ".csv", "text/csv", False))
 register_format(FormatSpec("xml", "data", "XML", ".xml", "application/xml", False))
 register_format(FormatSpec("toml", "data", "TOML", ".toml", "application/toml", False))
+register_format(
+    FormatSpec(
+        "xlsx",
+        "data",
+        "Excel (XLSX)",
+        ".xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        True,
+    )
+)
+register_format(
+    FormatSpec(
+        "ods",
+        "data",
+        "OpenDocument Sheet (ODS)",
+        ".ods",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        True,
+    )
+)
 
 
 def _decode(data: bytes) -> str:
@@ -157,7 +183,7 @@ def _as_rows(obj: object) -> list[dict]:
 
 
 def _scalar(value: object) -> str:
-    if isinstance(value, (dict, list)):
+    if isinstance(value, dict | list):
         return json.dumps(value, ensure_ascii=False)
     return "" if value is None else str(value)
 
@@ -201,6 +227,110 @@ def _safe_tag(tag: str) -> str:
     if not tag or not (tag[0].isalpha() or tag[0] == "_"):
         tag = "_" + tag
     return "".join(c for c in tag if c.isalnum() or c in "_-.")
+
+
+# --- Spreadsheets: XLSX (openpyxl) ------------------------------------------
+@reader("xlsx")
+def read_xlsx(data: bytes) -> object:
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception as exc:  # noqa: BLE001
+        raise ConversionError(f"Invalid XLSX file: {exc}") from exc
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    wb.close()
+    return _grid_to_rows(rows)
+
+
+@writer("xlsx")
+def write_xlsx(obj: object, options=None) -> bytes:
+    rows = _as_rows(obj)
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    columns = _columns_of(rows)
+    if columns:
+        ws.append(columns)
+        for row in rows:
+            ws.append([_scalar(row.get(c, "")) for c in columns])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# --- Spreadsheets: ODS (odfpy) ----------------------------------------------
+@reader("ods")
+def read_ods(data: bytes) -> object:
+    try:
+        doc = odf_load(io.BytesIO(data))
+    except Exception as exc:  # noqa: BLE001
+        raise ConversionError(f"Invalid ODS file: {exc}") from exc
+    tables = doc.getElementsByType(Table)
+    if not tables:
+        return []
+    grid = []
+    for tr in tables[0].getElementsByType(TableRow):
+        values = []
+        for cell in tr.getElementsByType(TableCell):
+            repeat = min(int(cell.getAttribute("numbercolumnsrepeated") or 1), 1024)
+            text = "".join(extractText(p) for p in cell.getElementsByType(P))
+            values.extend([text] * repeat)
+        grid.append(values)
+    return _grid_to_rows(grid)
+
+
+@writer("ods")
+def write_ods(obj: object, options=None) -> bytes:
+    rows = _as_rows(obj)
+    doc = OpenDocumentSpreadsheet()
+    table = Table(name="Sheet1")
+    columns = _columns_of(rows)
+
+    def _add(values):
+        tr = TableRow()
+        for value in values:
+            cell = TableCell()
+            cell.addElement(P(text=_scalar(value)))
+            tr.addElement(cell)
+        table.addElement(tr)
+
+    if columns:
+        _add(columns)
+        for row in rows:
+            _add([row.get(c, "") for c in columns])
+    doc.spreadsheet.addElement(table)
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def _columns_of(rows: list[dict]) -> list[str]:
+    columns: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in columns:
+                columns.append(key)
+    return columns
+
+
+def _grid_to_rows(grid) -> list[dict]:
+    """Turn a 2-D grid (list of row lists/tuples) into a list of dict records."""
+    grid = [list(r) for r in grid]
+    while grid and all((v is None or v == "") for v in grid[-1]):
+        grid.pop()
+    if not grid:
+        return []
+    header = [("" if h is None else str(h)) for h in grid[0]]
+    while header and header[-1] == "":
+        header.pop()
+    ncols = len(header)
+    out = []
+    for row in grid[1:]:
+        record = {}
+        for i in range(ncols):
+            value = row[i] if i < len(row) else ""
+            record[header[i]] = "" if value is None else value
+        out.append(record)
+    return out
 
 
 # --- Bridge: data family -> document family ---------------------------------

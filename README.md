@@ -10,8 +10,10 @@ Web app (Python + FastAPI) chuyển đổi qua lại giữa nhiều định dạ
 
 | Nhóm | Định dạng | Hub trung gian |
 |------|-----------|----------------|
-| Tài liệu | `txt`, `md`, `html`, `docx`, `pdf`, `rtf`, `odt`, `latex` | HTML |
-| Dữ liệu | `json`, `yaml`, `csv`, `xml`, `toml` | Python object |
+| Tài liệu | `txt`, `md`, `html`, `docx`, `pdf`, `rtf`, `odt`, `latex`, `epub`*, `revealjs`*, `pptx`* | HTML |
+| Dữ liệu | `json`, `yaml`, `csv`, `xml`, `toml`, `xlsx`, `ods` | Python object |
+
+`*` cần pandoc: `epub` (đọc + ghi), `revealjs`/`pptx` (chỉ ghi — slide từ heading).
 
 Chuyển đổi tự do **trong cùng một nhóm**. Ví dụ: `md → pdf`, `docx → md`,
 `odt → html`, `json → yaml`, `csv → json`, `toml → json`...
@@ -129,12 +131,16 @@ docker run -p 8000:8000 text-converter
 
 Mở http://127.0.0.1:8000
 
-## Chạy test
+## Phát triển (test & lint)
 
 ```bat
-pip install pytest
-pytest -q
+pip install -r requirements-dev.txt
+pytest -q               # chạy test (kèm pypandoc-binary nên có pandoc)
+ruff check app tests    # lint
+ruff format app tests   # format code
 ```
+
+CI trên GitHub Actions chạy cả lint (ruff) và test tự động mỗi lần push/PR.
 
 ## Thêm định dạng mới
 
