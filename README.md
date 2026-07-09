@@ -3,6 +3,8 @@
 [![CI](https://github.com/tridpt/text-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/tridpt/text-converter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
+[![Formats](https://img.shields.io/badge/formats-18-brightgreen.svg)](/matrix)
+[![Ruff](https://img.shields.io/badge/lint-ruff-orange.svg)](https://github.com/astral-sh/ruff)
 
 Web app (Python + FastAPI) chuyển đổi qua lại giữa nhiều định dạng file văn bản.
 
@@ -76,8 +78,11 @@ ghi qua xhtml2pdf (giữ tùy chọn cỡ giấy/theme).
 | Endpoint | Mô tả |
 |----------|-------|
 | `GET /api/formats` | Danh mục định dạng |
+| `GET /api/matrix` | Ma trận cặp nguồn → đích hỗ trợ |
 | `POST /api/convert` | Convert file. Fields: `files`, `source` (hoặc `auto`), `target`, `paper_size`, `toc`, `theme`, `merge` |
 | `POST /api/convert-url` | Convert từ URL. Fields: `url`, `target`, `paper_size`, `toc`, `theme` |
+
+Nếu đặt `API_KEY`, hai endpoint convert cần header `X-API-Key`.
 
 ## Kiến trúc
 
@@ -121,6 +126,31 @@ Sao chép `.env.example` và chỉnh nếu cần:
 | `PORT` | `8000` | Cổng web server |
 | `MAX_UPLOAD_MB` | `25` | Giới hạn dung lượng mỗi request (MB) |
 | `USE_PANDOC` | `1` | Dùng pandoc nếu có (`0` để tắt) |
+| `API_KEY` | *(trống)* | Nếu đặt, endpoint convert yêu cầu header `X-API-Key` |
+| `RATE_LIMIT_PER_MINUTE` | `0` | Giới hạn request/phút mỗi IP (`0` = tắt) |
+
+> Rate limit lưu trong bộ nhớ tiến trình — reset khi restart và không chia sẻ
+> giữa nhiều worker. Đủ dùng cho single-instance; nếu chạy nhiều instance nên
+> dùng reverse proxy hoặc store dùng chung.
+
+## CLI
+
+Dùng chung engine với web app:
+
+```bash
+python -m app.cli report.md report.pdf          # tự đoán định dạng theo đuôi
+python -m app.cli data.json data.yaml
+python -m app.cli a.md b.md c.md book.epub       # nhiều input -> gộp 1 file
+python -m app.cli page.tex out.docx --toc --theme github -p A4
+```
+
+Tùy chọn: `-f/--from`, `-t/--to` (ghi đè định dạng), `--toc`, `--theme`,
+`-p/--paper-size`.
+
+## Ma trận định dạng
+
+Xem trang `/matrix` (hoặc API `GET /api/matrix`) để biết cặp nguồn → đích nào
+chuyển được.
 
 ## Chạy bằng Docker
 

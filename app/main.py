@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import ipaddress
 import socket
+import time
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
@@ -23,17 +24,24 @@ from .converters import (
     read_as_document_html,
     render_document,
 )
-from .converters.registry import get_spec
+from .converters.registry import get_spec, support_matrix
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE = BASE_DIR / "templates" / "index.html"
+MATRIX_TEMPLATE = BASE_DIR / "templates" / "matrix.html"
 
-app = FastAPI(title="Text Format Converter", version="0.2.0")
+app = FastAPI(title="Text Format Converter", version="0.3.0")
+
+# Endpoints that perform (potentially expensive) conversions.
+_PROTECTED_PATHS = {"/api/convert", "/api/convert-url"}
+# In-memory per-IP rate-limit state: ip -> (minute_window, count).
+# Note: not shared across processes and resets on restart.
+_rate_state: dict[str, tuple[int, int]] = {}
 
 
 @app.middleware("http")
-async def limit_upload_size(request: Request, call_next):
-    """Reject oversized uploads early based on the Content-Length header."""
+async def gatekeeper(request: Request, call_next):
+    """Enforce upload size limit, optional API key, and per-IP rate limiting."""
     if request.method == "POST":
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > settings.max_upload_bytes:
@@ -43,6 +51,27 @@ async def limit_upload_size(request: Request, call_next):
                     "detail": f"Upload too large. Maximum is {settings.max_upload_mb} MB."
                 },
             )
+
+        if request.url.path in _PROTECTED_PATHS:
+            if settings.api_key and request.headers.get("x-api-key") != settings.api_key:
+                return JSONResponse(
+                    status_code=401, content={"detail": "Invalid or missing API key."}
+                )
+
+            limit = settings.rate_limit_per_minute
+            if limit > 0:
+                ip = request.client.host if request.client else "unknown"
+                window = int(time.time() // 60)
+                prev = _rate_state.get(ip)
+                count = prev[1] + 1 if prev and prev[0] == window else 1
+                _rate_state[ip] = (window, count)
+                if count > limit:
+                    return JSONResponse(
+                        status_code=429,
+                        content={"detail": "Rate limit exceeded. Try again later."},
+                        headers={"Retry-After": "60"},
+                    )
+
     return await call_next(request)
 
 
@@ -54,6 +83,16 @@ def index() -> str:
 @app.get("/api/formats")
 def formats() -> dict:
     return {"formats": list_formats()}
+
+
+@app.get("/api/matrix")
+def matrix() -> dict:
+    return support_matrix()
+
+
+@app.get("/matrix", response_class=HTMLResponse)
+def matrix_page() -> str:
+    return MATRIX_TEMPLATE.read_text(encoding="utf-8")
 
 
 # --- Helpers ----------------------------------------------------------------

@@ -121,3 +121,62 @@ def test_convert_url_rejects_non_http_scheme():
         data={"url": "file:///etc/passwd", "target": "md"},
     )
     assert r.status_code == 400
+
+
+# --- Format matrix ----------------------------------------------------------
+def test_matrix_endpoint():
+    m = client.get("/api/matrix").json()
+    assert "sources" in m and "targets" in m and "pairs" in m
+    # Same-family conversion is supported.
+    assert m["pairs"]["md"]["html"] is True
+    # Cross-family data -> document is supported (bridge).
+    assert m["pairs"]["json"]["pdf"] is True
+    # Document -> data is not.
+    assert m["pairs"]["md"].get("json", False) is False
+
+
+def test_matrix_page_served():
+    r = client.get("/matrix")
+    assert r.status_code == 200
+    assert "Ma trận" in r.text
+
+
+# --- API key & rate limiting ------------------------------------------------
+def test_api_key_required_when_configured(monkeypatch):
+    monkeypatch.setattr(settings, "api_key", "secret123")
+    # Missing key -> 401
+    r = client.post(
+        "/api/convert",
+        files={"files": ("a.md", b"# Hi")},
+        data={"source": "md", "target": "html"},
+    )
+    assert r.status_code == 401
+    # Correct key -> 200
+    r2 = client.post(
+        "/api/convert",
+        files={"files": ("a.md", b"# Hi")},
+        data={"source": "md", "target": "html"},
+        headers={"X-API-Key": "secret123"},
+    )
+    assert r2.status_code == 200
+
+
+def test_rate_limit(monkeypatch):
+    import app.main as main_mod
+
+    monkeypatch.setattr(settings, "rate_limit_per_minute", 2)
+    main_mod._rate_state.clear()
+    ok = 0
+    limited = 0
+    for _ in range(4):
+        r = client.post(
+            "/api/convert",
+            files={"files": ("a.md", b"# Hi")},
+            data={"source": "md", "target": "html"},
+        )
+        if r.status_code == 200:
+            ok += 1
+        elif r.status_code == 429:
+            limited += 1
+    assert ok == 2
+    assert limited == 2

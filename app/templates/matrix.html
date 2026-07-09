@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ma trận định dạng — Text Format Converter</title>
+  <style>
+    :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --text:#e2e8f0; --muted:#94a3b8; --line:#334155; --ok:#22c55e; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--text); padding:1.5rem; }
+    .wrap { max-width:1000px; margin:0 auto; }
+    h1 { font-size:1.4rem; margin:0 0 .25rem; }
+    p.sub { color:var(--muted); margin:0 0 1rem; font-size:.9rem; }
+    a { color:var(--accent); }
+    .legend { color:var(--muted); font-size:.82rem; margin:.5rem 0 1rem; }
+    .scroll { overflow:auto; border:1px solid var(--line); border-radius:10px; }
+    table { border-collapse:collapse; font-size:.8rem; min-width:100%; }
+    th, td { border:1px solid var(--line); padding:.4rem .55rem; text-align:center; white-space:nowrap; }
+    thead th { position:sticky; top:0; background:var(--card); z-index:2; }
+    tbody th { position:sticky; left:0; background:var(--card); text-align:left; z-index:1; }
+    .corner { position:sticky; left:0; top:0; z-index:3; background:var(--card); text-align:left; color:var(--muted); }
+    .yes { color:var(--ok); font-weight:700; }
+    .no { color:#475569; }
+    .fam { color:var(--muted); font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Ma trận định dạng hỗ trợ</h1>
+    <p class="sub"><a href="/">&larr; Quay lại trang chuyển đổi</a></p>
+    <p class="legend">Hàng = định dạng nguồn, cột = định dạng đích. <span class="yes">✓</span> = chuyển được. Trong cùng nhóm chuyển tự do; nhóm dữ liệu còn bắc cầu sang nhóm tài liệu.</p>
+    <div class="scroll"><table id="matrix"></table></div>
+  </div>
+
+  <script>
+    async function load() {
+      const m = await (await fetch('/api/matrix')).json();
+      const t = document.getElementById('matrix');
+
+      const thead = document.createElement('thead');
+      const hr = document.createElement('tr');
+      hr.innerHTML = '<th class="corner">nguồn \\ đích</th>';
+      m.targets.forEach(tg => {
+        const th = document.createElement('th');
+        th.innerHTML = `${tg.name}<div class="fam">${tg.family === 'document' ? 'tài liệu' : 'dữ liệu'}</div>`;
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr); t.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      m.sources.forEach(sr => {
+        const tr = document.createElement('tr');
+        const th = document.createElement('th');
+        th.innerHTML = `${sr.name} <span class="fam">${sr.family === 'document' ? 'doc' : 'data'}</span>`;
+        tr.appendChild(th);
+        m.targets.forEach(tg => {
+          const td = document.createElement('td');
+          const ok = m.pairs[sr.name][tg.name];
+          td.className = ok ? 'yes' : 'no';
+          td.textContent = ok ? '✓' : '·';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      t.appendChild(tbody);
+    }
+    load();
+  </script>
+</body>
+</html>

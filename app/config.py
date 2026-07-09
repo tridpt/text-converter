@@ -20,6 +20,11 @@ class Settings:
             "false",
             "False",
         )
+        # Optional API key. If set, conversion endpoints require the
+        # `X-API-Key` header. Empty means the API is open.
+        self.api_key: str = os.getenv("API_KEY", "").strip()
+        # Per-IP request cap for conversion endpoints, per minute. 0 disables.
+        self.rate_limit_per_minute: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "0"))
 
     @property
     def max_upload_bytes(self) -> int:

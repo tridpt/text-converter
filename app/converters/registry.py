@@ -138,6 +138,40 @@ def get_spec(fmt: str) -> FormatSpec:
     return spec
 
 
+def can_convert(source: str, target: str) -> bool:
+    """Whether a conversion from ``source`` to ``target`` is supported."""
+    if source not in _READERS or target not in _WRITERS:
+        return False
+    src, tgt = _FORMATS[source], _FORMATS[target]
+    if src.family == tgt.family:
+        return True
+    return (src.family, tgt.family) in _BRIDGES
+
+
+def support_matrix() -> dict:
+    """Return the full source x target support matrix for display."""
+    sources = sorted(
+        (s for s in _FORMATS.values() if s.name in _READERS),
+        key=lambda s: (s.family, s.name),
+    )
+    targets = sorted(
+        (t for t in _FORMATS.values() if t.name in _WRITERS),
+        key=lambda t: (t.family, t.name),
+    )
+    return {
+        "sources": [
+            {"name": s.name, "label": s.label, "family": s.family} for s in sources
+        ],
+        "targets": [
+            {"name": t.name, "label": t.label, "family": t.family} for t in targets
+        ],
+        "pairs": {
+            s.name: {t.name: can_convert(s.name, t.name) for t in targets}
+            for s in sources
+        },
+    }
+
+
 def _apply_document_transforms(html: str, options: ConvertOptions) -> str:
     if options.toc and _TOC_TRANSFORMER is not None:
         html = _TOC_TRANSFORMER(html)
