@@ -21,10 +21,31 @@ Object sẽ được render thành bảng HTML rồi chuyển tiếp. Ví dụ: 
 `json → pdf`, `yaml → md`.
 
 Ghi chú:
-- `latex` hiện chỉ **ghi** (HTML → LaTeX), chưa đọc.
-- `pdf` đọc được (trích xuất text), `pdf`/`docx`/`odt` là đầu ra nhị phân.
+- `latex`: **ghi** luôn được; **đọc** cần pandoc (xem mục dưới).
+- `pdf` đọc được (trích text + ảnh), `pdf`/`docx`/`odt` là đầu ra nhị phân.
 - Chiều `document → data` (ví dụ `md → json`) không có cầu nối vì không có
   ý nghĩa rõ ràng.
+
+## Chất lượng cao với Pandoc (tùy chọn)
+
+Nếu có sẵn **pandoc** trên máy, app tự động dùng nó cho các chuyển đổi chất
+lượng cao (giữ bảng, ảnh, công thức tốt hơn nhiều) và **mở khóa đọc LaTeX**.
+Không có pandoc thì app vẫn chạy bình thường bằng bộ chuyển đổi pure-Python.
+
+Khi pandoc bật, nó thay thế:
+- Đọc (`→ HTML`): `latex` (mới), `docx`, `odt` — kèm trích ảnh (nhúng base64)
+  và công thức (MathML).
+- Ghi (`HTML →`): `latex`, `docx`, `odt`, `rtf`, `md` — giữ bảng, danh sách,
+  công thức (LaTeX/MathML → OMML của Word).
+
+Cài pandoc:
+- Docker: đã cài sẵn trong image.
+- Windows/macOS/Linux: cài binary `pandoc`, hoặc `pip install pypandoc_binary`
+  (đóng gói sẵn binary).
+- Tắt cưỡng bức: đặt biến môi trường `USE_PANDOC=0`.
+
+`pdf` vẫn dùng bộ pure-Python: đọc trích text + **trích ảnh nhúng** (pypdf),
+ghi qua xhtml2pdf (giữ tùy chọn cỡ giấy/theme).
 
 ## Tính năng
 
@@ -97,6 +118,7 @@ Sao chép `.env.example` và chỉnh nếu cần:
 | `HOST` | `127.0.0.1` | Interface bind (dùng `0.0.0.0` để mở ra mạng/Docker) |
 | `PORT` | `8000` | Cổng web server |
 | `MAX_UPLOAD_MB` | `25` | Giới hạn dung lượng mỗi request (MB) |
+| `USE_PANDOC` | `1` | Dùng pandoc nếu có (`0` để tắt) |
 
 ## Chạy bằng Docker
 

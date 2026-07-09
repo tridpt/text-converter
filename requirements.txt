@@ -18,6 +18,13 @@ pdfplumber==0.11.4
 odfpy==1.4.1
 striprtf==0.0.28
 Pillow==11.1.0
+pypdf==5.1.0
+
+# Optional high-fidelity engine (requires the `pandoc` binary on PATH, or
+# `pip install pypandoc_binary` which bundles it). Enables reading LaTeX and
+# better preservation of tables / images / math. The app falls back to the
+# pure-Python converters when pandoc is unavailable.
+pypandoc==1.14
 
 # Data formats
 PyYAML==6.0.2

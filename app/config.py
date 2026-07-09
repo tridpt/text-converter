@@ -13,6 +13,9 @@ class Settings:
         self.port: int = int(os.getenv("PORT", "8000"))
         # Maximum accepted upload size for a single request, in megabytes.
         self.max_upload_mb: int = int(os.getenv("MAX_UPLOAD_MB", "25"))
+        # Use Pandoc for high-fidelity conversions when available.
+        # Set USE_PANDOC=0 to force the pure-Python converters.
+        self.use_pandoc: bool = os.getenv("USE_PANDOC", "1") not in ("0", "false", "False")
 
     @property
     def max_upload_bytes(self) -> int:

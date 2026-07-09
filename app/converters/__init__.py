@@ -14,6 +14,10 @@ from .registry import (
 from . import documents  # noqa: F401
 from . import data  # noqa: F401
 
+# Pandoc overrides selected readers/writers when the binary is available.
+# Imported last so its registrations take precedence over the pure-Python ones.
+from . import pandoc_ext  # noqa: F401,E402
+
 __all__ = [
     "convert",
     "list_formats",

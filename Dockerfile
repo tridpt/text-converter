@@ -1,6 +1,10 @@
 FROM python:3.13-slim
 
-# System deps kept minimal; all converters are pure-Python wheels.
+# Install pandoc for high-fidelity conversions (LaTeX reading, tables/math).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pandoc \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY requirements.txt .

@@ -223,9 +223,33 @@ def read_docx(data: bytes) -> str:
     return result.value
 
 
+def _extract_pdf_images(page) -> list[str]:
+    """Return a list of data-URI <img> tags for images embedded in a pdf page."""
+    tags = []
+    try:
+        from pypdf import PdfReader  # noqa: F401  (import kept local/optional)
+    except Exception:  # noqa: BLE001
+        return tags
+    for image in getattr(page, "images", []) or []:
+        try:
+            raw = image.data
+            mime = "image/png"
+            name = (getattr(image, "name", "") or "").lower()
+            if name.endswith((".jpg", ".jpeg")):
+                mime = "image/jpeg"
+            elif name.endswith(".gif"):
+                mime = "image/gif"
+            encoded = base64.b64encode(raw).decode("ascii")
+            tags.append(f'<img src="data:{mime};base64,{encoded}">')
+        except Exception:  # noqa: BLE001 - skip images we cannot decode
+            continue
+    return tags
+
+
 @reader("pdf")
 def read_pdf(data: bytes) -> str:
     parts = []
+    # Text via pdfplumber (good layout handling).
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         for page in pdf.pages:
             text = page.extract_text() or ""
@@ -233,6 +257,17 @@ def read_pdf(data: bytes) -> str:
                 para = para.strip()
                 if para:
                     parts.append(f"<p>{html_lib.escape(para)}</p>")
+
+    # Images via pypdf (extracted as inline data URIs).
+    try:
+        from pypdf import PdfReader
+
+        reader_obj = PdfReader(io.BytesIO(data))
+        for page in reader_obj.pages:
+            parts.extend(_extract_pdf_images(page))
+    except Exception:  # noqa: BLE001 - image extraction is best-effort
+        pass
+
     return "\n".join(parts)
 
 

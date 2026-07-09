@@ -1,5 +1,7 @@
 """Round-trip and basic conversion tests for the converter registry."""
 
+import base64
+import io
 import json
 
 import pytest
@@ -13,6 +15,20 @@ from app.converters import (
     read_as_document_html,
     render_document,
 )
+from app.converters import pandoc_ext
+
+pandoc_only = pytest.mark.skipif(
+    not pandoc_ext.PANDOC_AVAILABLE, reason="pandoc binary not available"
+)
+
+
+def _png_bytes() -> bytes:
+    from PIL import Image
+
+    img = Image.new("RGB", (8, 8), (0, 128, 255))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def test_catalogue_has_expected_formats():
@@ -91,16 +107,18 @@ def test_toml_roundtrip_with_json():
 
 
 def test_html_to_latex():
+    # Works with both the pure-Python writer and the Pandoc writer.
     out = convert(b"<h1>Title</h1><p>Body with 50% off</p>", "html", "latex").decode()
-    assert "\\documentclass{article}" in out
-    assert "\\section*{Title}" in out
+    assert "\\documentclass" in out
+    assert "\\section" in out
+    assert "Title" in out
     assert "50\\%" in out  # special char escaped
 
 
 def test_html_to_rtf():
     out = convert(b"<p>Hello <strong>bold</strong></p>", "html", "rtf").decode()
     assert out.startswith("{\\rtf1")
-    assert "\\b bold" in out
+    assert "bold" in out
 
 
 def test_md_to_odt_and_back():
@@ -182,6 +200,46 @@ def test_merge_documents_into_one_pdf():
 def test_render_document_rejects_data_target():
     with pytest.raises(ConversionError):
         render_document("<p>hi</p>", "json", ConvertOptions())
+
+
+# --- PDF image extraction ---------------------------------------------------
+def test_pdf_image_round_trip():
+    data_uri = "data:image/png;base64," + base64.b64encode(_png_bytes()).decode()
+    html = f'<h1>Doc</h1><p>text</p><img src="{data_uri}">'
+    pdf = convert(html.encode(), "html", "pdf")
+    assert pdf[:4] == b"%PDF"
+    back = convert(pdf, "pdf", "html").decode()
+    assert "<img" in back  # embedded image was extracted
+
+
+# --- Pandoc high-fidelity path (only when the binary is present) ------------
+@pandoc_only
+def test_latex_is_readable_with_pandoc():
+    names = {f["name"]: f for f in list_formats()}
+    assert names["latex"]["readable"] is True
+
+
+@pandoc_only
+def test_read_latex_to_markdown_keeps_structure():
+    tex = rb"""\documentclass{article}
+\begin{document}
+\section{Intro}
+Hello world.
+\end{document}
+"""
+    md = convert(tex, "latex", "md").decode("utf-8")
+    assert "Intro" in md
+    assert "Hello world" in md
+
+
+@pandoc_only
+def test_html_table_to_latex_uses_tabular():
+    out = convert(
+        b"<table><tr><th>X</th><th>Y</th></tr><tr><td>1</td><td>2</td></tr></table>",
+        "html",
+        "latex",
+    ).decode()
+    assert "tabular" in out or "longtable" in out
 
 
 # --- Error handling ---------------------------------------------------------
