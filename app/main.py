@@ -80,6 +80,14 @@ def index() -> str:
     return TEMPLATE.read_text(encoding="utf-8")
 
 
+@app.get("/health")
+def health() -> dict:
+    """Lightweight health check for load balancers / platform probes."""
+    from .converters import pandoc_ext
+
+    return {"status": "ok", "pandoc": pandoc_ext.PANDOC_AVAILABLE}
+
+
 @app.get("/api/formats")
 def formats() -> dict:
     return {"formats": list_formats()}

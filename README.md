@@ -164,7 +164,31 @@ docker build -t text-converter .
 docker run -p 8000:8000 text-converter
 ```
 
-Mở http://127.0.0.1:8000
+Mở http://127.0.0.1:8000 — healthcheck tại `/health`.
+
+## Deploy
+
+Cả hai nền tảng dưới đây deploy trực tiếp từ `Dockerfile` (đã có pandoc).
+Config production mẫu bật sẵn `RATE_LIMIT_PER_MINUTE=60` và `HOST=0.0.0.0`.
+
+### Fly.io (dùng `fly.toml`)
+
+```bash
+# Cài flyctl: https://fly.io/docs/hands-on/install-flyctl/
+fly auth login
+fly launch --copy-config --now      # dùng fly.toml sẵn có (đổi tên app nếu trùng)
+# các lần sau:
+fly deploy
+```
+
+### Render (dùng `render.yaml`)
+
+1. Push repo lên GitHub (đã xong).
+2. Trên Render: **New → Blueprint**, chọn repo này. Render tự đọc `render.yaml`.
+3. Bấm **Apply**. Render build Docker và cấp URL công khai.
+
+Sau khi deploy, đặt thêm `API_KEY` (nếu muốn giới hạn truy cập) và điều chỉnh
+`MAX_UPLOAD_MB` tùy nhu cầu.
 
 ## Phát triển (test & lint)
 

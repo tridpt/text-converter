@@ -17,6 +17,14 @@ def test_index_served():
     assert "Text Format Converter" in r.text
 
 
+def test_health():
+    r = client.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert "pandoc" in body
+
+
 def test_formats_endpoint():
     r = client.get("/api/formats")
     assert r.status_code == 200
