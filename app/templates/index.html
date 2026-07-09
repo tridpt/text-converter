@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Text Format Converter</title>
+  <style>
+    :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --text:#e2e8f0; --muted:#94a3b8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text);
+           min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1.5rem; }
+    .card { background:var(--card); border-radius:16px; padding:2rem; width:100%; max-width:520px;
+            box-shadow:0 10px 40px rgba(0,0,0,.4); }
+    h1 { margin:0 0 .25rem; font-size:1.5rem; }
+    p.sub { margin:0 0 1.5rem; color:var(--muted); font-size:.9rem; }
+    label { display:block; font-size:.8rem; color:var(--muted); margin:1rem 0 .35rem; text-transform:uppercase; letter-spacing:.05em; }
+    input[type=file], select { width:100%; padding:.7rem; border-radius:8px; border:1px solid #334155;
+            background:#0f172a; color:var(--text); font-size:.95rem; }
+    .row { display:flex; gap:1rem; }
+    .row > div { flex:1; }
+    button { width:100%; margin-top:1.5rem; padding:.85rem; border:none; border-radius:8px;
+             background:var(--accent); color:#04222e; font-weight:600; font-size:1rem; cursor:pointer; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .msg { margin-top:1rem; padding:.75rem; border-radius:8px; font-size:.88rem; display:none; }
+    .msg.error { background:#7f1d1d; color:#fecaca; display:block; }
+    .msg.ok { background:#064e3b; color:#a7f3d0; display:block; }
+    .hint { font-size:.75rem; color:var(--muted); margin-top:.35rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Text Format Converter</h1>
+    <p class="sub">Chuyển đổi qua lại giữa nhiều định dạng tài liệu và dữ liệu.</p>
+
+    <form id="form">
+      <label for="file">Chọn file (có thể chọn nhiều)</label>
+      <input type="file" id="file" name="file" multiple required>
+
+      <div class="row">
+        <div>
+          <label for="source">Từ định dạng</label>
+          <select id="source" name="source"></select>
+        </div>
+        <div>
+          <label for="target">Sang định dạng</label>
+          <select id="target" name="target"></select>
+        </div>
+      </div>
+      <p class="hint">Tài liệu: txt, md, html, docx, pdf, rtf, odt, latex • Dữ liệu: json, yaml, csv, xml, toml • Chọn nhiều file sẽ tải về .zip</p>
+
+      <button type="submit" id="btn">Chuyển đổi & Tải về</button>
+    </form>
+
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <script>
+    const sourceSel = document.getElementById('source');
+    const targetSel = document.getElementById('target');
+    const msg = document.getElementById('msg');
+    const btn = document.getElementById('btn');
+    let formats = [];
+
+    function fill(sel, items) {
+      sel.innerHTML = '';
+      let lastFamily = null;
+      let group = null;
+      items.forEach(f => {
+        if (f.family !== lastFamily) {
+          group = document.createElement('optgroup');
+          group.label = f.family === 'document' ? 'Tài liệu' : 'Dữ liệu';
+          sel.appendChild(group);
+          lastFamily = f.family;
+        }
+        const opt = document.createElement('option');
+        opt.value = f.name;
+        opt.textContent = `${f.label} (${f.extension})`;
+        group.appendChild(opt);
+      });
+    }
+
+    function show(text, kind) {
+      msg.textContent = text;
+      msg.className = 'msg ' + kind;
+    }
+
+    async function load() {
+      const res = await fetch('/api/formats');
+      const data = await res.json();
+      formats = data.formats;
+      fill(sourceSel, formats.filter(f => f.readable));
+      fill(targetSel, formats.filter(f => f.writable));
+      if (targetSel.options.length > 1) targetSel.selectedIndex = 1;
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = 'msg';
+      const files = document.getElementById('file').files;
+      if (!files.length) { show('Vui lòng chọn file.', 'error'); return; }
+
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      fd.append('source', sourceSel.value);
+      fd.append('target', targetSel.value);
+
+      btn.disabled = true;
+      btn.textContent = 'Đang xử lý...';
+      try {
+        const res = await fetch('/api/convert', { method: 'POST', body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: 'Lỗi không xác định' }));
+          show(err.detail || 'Chuyển đổi thất bại.', 'error');
+          return;
+        }
+        const blob = await res.blob();
+        const dispo = res.headers.get('Content-Disposition') || '';
+        const match = dispo.match(/filename="?([^"]+)"?/);
+        const name = match ? match[1] : 'converted';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name; a.click();
+        URL.revokeObjectURL(url);
+        show('Đã chuyển đổi xong: ' + name, 'ok');
+      } catch (err) {
+        show('Lỗi kết nối: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Chuyển đổi & Tải về';
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

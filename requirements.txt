@@ -1,0 +1,23 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+jinja2==3.1.5
+
+# Document formats
+markdown==3.7
+markdownify==0.14.1
+beautifulsoup4==4.12.3
+python-docx==1.1.2
+mammoth==1.8.0
+xhtml2pdf==0.2.16
+pdfplumber==0.11.4
+
+# Document formats (extra)
+odfpy==1.4.1
+striprtf==0.0.28
+Pillow==11.1.0
+
+# Data formats
+PyYAML==6.0.2
+tomli-w==1.1.0
