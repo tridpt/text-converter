@@ -23,7 +23,15 @@ from odf.opendocument import OpenDocumentText, load as odf_load
 from odf import text as odf_text
 from odf.teletype import extractText
 
-from .registry import FormatSpec, ConversionError, reader, register_format, writer
+from .registry import (
+    ConversionError,
+    ConvertOptions,
+    FormatSpec,
+    reader,
+    register_format,
+    set_toc_transformer,
+    writer,
+)
 
 # --- Format catalogue -------------------------------------------------------
 register_format(FormatSpec("txt", "document", "Plain text", ".txt", "text/plain", False))
@@ -68,16 +76,116 @@ def _decode(data: bytes) -> str:
     return data.decode("utf-8", errors="replace")
 
 
-def _wrap_html_document(body_html: str) -> str:
-    """Wrap fragment HTML in a minimal, well-formed HTML document."""
+# CSS themes applied to HTML/PDF output.
+THEMES = {
+    "default": (
+        "body{font-family:sans-serif;line-height:1.5;max-width:800px;"
+        "margin:2rem auto;padding:0 1rem;color:#222;}"
+        "pre{background:#f4f4f4;padding:1rem;overflow:auto;}"
+        "table{border-collapse:collapse;}td,th{border:1px solid #ccc;padding:6px;}"
+    ),
+    "github": (
+        "body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;"
+        "line-height:1.6;max-width:820px;margin:2rem auto;padding:0 1rem;color:#24292f;}"
+        "h1,h2{border-bottom:1px solid #d0d7de;padding-bottom:.3em;}"
+        "code,pre{background:#f6f8fa;border-radius:6px;}"
+        "pre{padding:1rem;overflow:auto;}"
+        "table{border-collapse:collapse;}td,th{border:1px solid #d0d7de;padding:6px 13px;}"
+        "blockquote{color:#57606a;border-left:.25em solid #d0d7de;padding:0 1em;}"
+    ),
+    "dark": (
+        "body{font-family:sans-serif;line-height:1.6;max-width:800px;"
+        "margin:2rem auto;padding:1rem;background:#0d1117;color:#c9d1d9;}"
+        "a{color:#58a6ff;}pre,code{background:#161b22;}"
+        "pre{padding:1rem;overflow:auto;border-radius:6px;}"
+        "table{border-collapse:collapse;}td,th{border:1px solid #30363d;padding:6px;}"
+    ),
+    "minimal": (
+        "body{font-family:Georgia,serif;line-height:1.7;max-width:700px;"
+        "margin:3rem auto;padding:0 1rem;color:#111;}"
+    ),
+}
+
+_PAPER_SIZES = {"A3", "A4", "A5", "Letter", "Legal"}
+
+
+def _wrap_html_document(
+    body_html: str, theme: str = "default", paper_size: str | None = None
+) -> str:
+    """Wrap fragment HTML in a well-formed HTML document with a theme."""
+    css = THEMES.get(theme, THEMES["default"])
+    if paper_size and paper_size in _PAPER_SIZES:
+        css += f"@page{{size:{paper_size};margin:2cm;}}"
+    css += (
+        ".toc{border:1px solid #ccc;padding:.5rem 1rem;margin-bottom:1.5rem;}"
+        ".toc ul{margin:.3rem 0;}"
+    )
     return (
         "<!DOCTYPE html>\n<html>\n<head>\n"
         '<meta charset="utf-8">\n'
-        "<style>body{font-family:sans-serif;line-height:1.5;"
-        "max-width:800px;margin:2rem auto;padding:0 1rem;}"
-        "pre{background:#f4f4f4;padding:1rem;overflow:auto;}"
-        "</style>\n</head>\n<body>\n" + body_html + "\n</body>\n</html>\n"
+        f"<style>{css}</style>\n</head>\n<body>\n"
+        + body_html
+        + "\n</body>\n</html>\n"
     )
+
+
+def _slugify(text: str, used: set[str]) -> str:
+    base = "".join(c if c.isalnum() else "-" for c in text.lower()).strip("-")
+    base = base or "section"
+    slug = base
+    i = 1
+    while slug in used:
+        i += 1
+        slug = f"{base}-{i}"
+    used.add(slug)
+    return slug
+
+
+def add_table_of_contents(html: str) -> str:
+    """Insert anchor ids on headings and prepend a nested table of contents."""
+    soup = BeautifulSoup(html, "html.parser")
+    headings = soup.find_all(_HEADING_TAGS)
+    if not headings:
+        return html
+
+    used_ids: set[str] = set()
+    entries = []
+    for h in headings:
+        text = h.get_text(strip=True)
+        if not text:
+            continue
+        anchor = h.get("id") or _slugify(text, used_ids)
+        h["id"] = anchor
+        entries.append((int(h.name[1]), text, anchor))
+
+    if not entries:
+        return html
+
+    min_level = min(level for level, _, _ in entries)
+    items = []
+    for level, text, anchor in entries:
+        indent = "margin-left:{}px".format((level - min_level) * 20)
+        items.append(
+            f'<li style="{indent}"><a href="#{anchor}">'
+            f"{html_lib.escape(text)}</a></li>"
+        )
+    toc = (
+        '<div class="toc"><strong>Contents</strong><ul>'
+        + "".join(items)
+        + "</ul></div>"
+    )
+
+    target = soup.body or soup
+    first = target.find(True)
+    if first is not None:
+        first.insert_before(BeautifulSoup(toc, "html.parser"))
+    else:
+        target.append(BeautifulSoup(toc, "html.parser"))
+    return str(soup)
+
+
+# Register TOC transformer with the registry (used when options.toc is set).
+set_toc_transformer(add_table_of_contents)
 
 
 # --- Readers (bytes -> HTML string) -----------------------------------------
@@ -130,16 +238,16 @@ def read_pdf(data: bytes) -> str:
 
 # --- Writers (HTML string -> bytes) -----------------------------------------
 @writer("html")
-def write_html(html: str) -> bytes:
+def write_html(html: str, options: ConvertOptions | None = None) -> bytes:
+    options = options or ConvertOptions()
     # Only wrap if it is a bare fragment.
-    lowered = html.lower()
-    if "<html" not in lowered:
-        html = _wrap_html_document(html)
+    if "<html" not in html.lower():
+        html = _wrap_html_document(html, theme=options.theme)
     return html.encode("utf-8")
 
 
 @writer("md")
-def write_md(html: str) -> bytes:
+def write_md(html: str, options: ConvertOptions | None = None) -> bytes:
     md_text = markdownify(html, heading_style="ATX")
     # Collapse excessive blank lines.
     lines = [ln.rstrip() for ln in md_text.splitlines()]
@@ -148,7 +256,7 @@ def write_md(html: str) -> bytes:
 
 
 @writer("txt")
-def write_txt(html: str) -> bytes:
+def write_txt(html: str, options: ConvertOptions | None = None) -> bytes:
     soup = BeautifulSoup(html, "html.parser")
     for br in soup.find_all("br"):
         br.replace_with("\n")
@@ -255,7 +363,7 @@ def _emit_image(doc, img: Tag) -> None:
 
 
 @writer("docx")
-def write_docx(html: str) -> bytes:
+def write_docx(html: str, options: ConvertOptions | None = None) -> bytes:
     soup = BeautifulSoup(html, "html.parser")
     doc = Document()
     root = soup.body or soup
@@ -274,10 +382,12 @@ def write_docx(html: str) -> bytes:
 
 
 @writer("pdf")
-def write_pdf(html: str) -> bytes:
-    lowered = html.lower()
-    if "<html" not in lowered:
-        html = _wrap_html_document(html)
+def write_pdf(html: str, options: ConvertOptions | None = None) -> bytes:
+    options = options or ConvertOptions()
+    if "<html" not in html.lower():
+        html = _wrap_html_document(
+            html, theme=options.theme, paper_size=options.paper_size
+        )
     buf = io.BytesIO()
     result = pisa.CreatePDF(src=html, dest=buf, encoding="utf-8")
     if result.err:
@@ -331,7 +441,7 @@ def read_rtf(data: bytes) -> str:
 
 
 @writer("rtf")
-def write_rtf(html: str) -> bytes:
+def write_rtf(html: str, options: ConvertOptions | None = None) -> bytes:
     soup = BeautifulSoup(html, "html.parser")
     root = soup.body or soup
     body_parts = []
@@ -383,7 +493,7 @@ def read_odt(data: bytes) -> str:
 
 
 @writer("odt")
-def write_odt(html: str) -> bytes:
+def write_odt(html: str, options: ConvertOptions | None = None) -> bytes:
     soup = BeautifulSoup(html, "html.parser")
     root = soup.body or soup
     doc = OpenDocumentText()
@@ -422,7 +532,7 @@ def _latex_escape(text: str) -> str:
 
 
 @writer("latex")
-def write_latex(html: str) -> bytes:
+def write_latex(html: str, options: ConvertOptions | None = None) -> bytes:
     soup = BeautifulSoup(html, "html.parser")
     root = soup.body or soup
     body_parts = []

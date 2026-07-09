@@ -13,8 +13,9 @@ within the same family without writing an N x N matrix of converters.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable, Dict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Callable, Dict, Optional
 
 
 class ConversionError(Exception):
@@ -31,6 +32,26 @@ class FormatSpec:
     binary: bool       # True if the output is binary (e.g. pdf, docx)
 
 
+@dataclass
+class ConvertOptions:
+    """User-selectable options that influence how output is rendered."""
+
+    paper_size: str = "A4"      # A4, Letter, Legal, A3, A5 (PDF only)
+    toc: bool = False           # prepend a table of contents (documents)
+    theme: str = "default"      # CSS theme for HTML/PDF output
+
+
+# Extra file-extension aliases mapped to canonical format names.
+_EXTENSION_ALIASES: Dict[str, str] = {
+    ".yml": "yaml",
+    ".htm": "html",
+    ".markdown": "md",
+    ".mdown": "md",
+    ".tex": "latex",
+    ".text": "txt",
+}
+
+
 # Registries -----------------------------------------------------------------
 _FORMATS: Dict[str, FormatSpec] = {}
 _READERS: Dict[str, Callable[[bytes], object]] = {}
@@ -38,10 +59,31 @@ _WRITERS: Dict[str, Callable[[object], bytes]] = {}
 # Bridge functions convert a source family's hub into a target family's hub,
 # keyed by (source_family, target_family).
 _BRIDGES: Dict[tuple[str, str], Callable[[object], object]] = {}
+# Optional transform applied to a document (HTML) hub, e.g. table of contents.
+_TOC_TRANSFORMER: Optional[Callable[[str], str]] = None
 
 
 def register_format(spec: FormatSpec) -> None:
     _FORMATS[spec.name] = spec
+
+
+def set_toc_transformer(func: Callable[[str], str]) -> None:
+    """Register the function that injects a table of contents into HTML."""
+    global _TOC_TRANSFORMER
+    _TOC_TRANSFORMER = func
+
+
+def detect_format(filename: str) -> str:
+    """Guess the canonical format from a file name's extension."""
+    ext = Path(filename or "").suffix.lower()
+    if not ext:
+        raise ConversionError(f"Cannot detect format: {filename!r} has no extension.")
+    if ext in _EXTENSION_ALIASES:
+        return _EXTENSION_ALIASES[ext]
+    for spec in _FORMATS.values():
+        if spec.extension.lower() == ext:
+            return spec.name
+    raise ConversionError(f"Unsupported file extension: {ext!r}")
 
 
 def register_bridge(
@@ -96,8 +138,17 @@ def get_spec(fmt: str) -> FormatSpec:
     return spec
 
 
-def convert(data: bytes, source: str, target: str) -> bytes:
+def _apply_document_transforms(html: str, options: ConvertOptions) -> str:
+    if options.toc and _TOC_TRANSFORMER is not None:
+        html = _TOC_TRANSFORMER(html)
+    return html
+
+
+def convert(
+    data: bytes, source: str, target: str, options: Optional[ConvertOptions] = None
+) -> bytes:
     """Convert ``data`` from ``source`` format to ``target`` format."""
+    options = options or ConvertOptions()
     src = get_spec(source)
     tgt = get_spec(target)
 
@@ -118,4 +169,41 @@ def convert(data: bytes, source: str, target: str) -> bytes:
             )
         hub = bridge(hub)
 
-    return _WRITERS[target](hub)
+    if tgt.family == "document":
+        hub = _apply_document_transforms(hub, options)
+
+    return _WRITERS[target](hub, options)
+
+
+def read_as_document_html(data: bytes, source: str) -> str:
+    """Read a source file and return its document-family HTML hub.
+
+    Bridges data formats into HTML when needed. Used for merging and URL flows.
+    """
+    spec = get_spec(source)
+    if source not in _READERS:
+        raise ConversionError(f"Cannot read from format: {source!r}")
+    hub = _READERS[source](data)
+    if spec.family == "document":
+        return hub
+    bridge = _BRIDGES.get((spec.family, "document"))
+    if bridge is None:
+        raise ConversionError(f"Cannot treat {source!r} as a document.")
+    return bridge(hub)
+
+
+def render_document(
+    html: str, target: str, options: Optional[ConvertOptions] = None
+) -> bytes:
+    """Write an HTML document hub to ``target`` (must be a document format)."""
+    options = options or ConvertOptions()
+    tgt = get_spec(target)
+    if tgt.family != "document":
+        raise ConversionError(
+            f"Merging/URL output is only supported for document formats, "
+            f"not {target!r}."
+        )
+    if target not in _WRITERS:
+        raise ConversionError(f"Cannot write to format: {target!r}")
+    html = _apply_document_transforms(html, options)
+    return _WRITERS[target](html, options)

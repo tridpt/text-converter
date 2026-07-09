@@ -4,7 +4,15 @@ import json
 
 import pytest
 
-from app.converters import convert, list_formats, ConversionError
+from app.converters import (
+    ConversionError,
+    ConvertOptions,
+    convert,
+    detect_format,
+    list_formats,
+    read_as_document_html,
+    render_document,
+)
 
 
 def test_catalogue_has_expected_formats():
@@ -126,6 +134,54 @@ def test_json_to_pdf_via_bridge():
 def test_csv_to_docx_via_bridge():
     out = convert(b"name,age\nAlice,30\n", "csv", "docx")
     assert out[:2] == b"PK"
+
+
+# --- Auto-detect ------------------------------------------------------------
+def test_detect_format_from_extension():
+    assert detect_format("report.MD") == "md"
+    assert detect_format("data.yml") == "yaml"
+    assert detect_format("page.htm") == "html"
+    assert detect_format("paper.tex") == "latex"
+
+
+def test_detect_format_unknown():
+    with pytest.raises(ConversionError):
+        detect_format("mystery.xyz")
+    with pytest.raises(ConversionError):
+        detect_format("noext")
+
+
+# --- Convert options --------------------------------------------------------
+def test_toc_option_adds_table_of_contents():
+    out = convert(b"# One\n\n## Two\n\ntext", "md", "html", ConvertOptions(toc=True)).decode()
+    assert 'class="toc"' in out
+    assert 'href="#one"' in out
+    assert 'id="one"' in out
+
+
+def test_theme_option_changes_css():
+    out = convert(b"# Hi", "md", "html", ConvertOptions(theme="dark")).decode()
+    assert "#0d1117" in out  # dark background color
+
+
+def test_paper_size_in_pdf_uses_page_rule():
+    # PDF is binary; just ensure it still renders with a non-default size.
+    out = convert(b"# Hi", "md", "pdf", ConvertOptions(paper_size="Letter"))
+    assert out[:4] == b"%PDF"
+
+
+# --- Merge helpers ----------------------------------------------------------
+def test_merge_documents_into_one_pdf():
+    a = read_as_document_html(b"# Doc A", "md")
+    b = read_as_document_html(b"# Doc B", "md")
+    combined = a + '<div style="page-break-before:always"></div>' + b
+    out = render_document(combined, "pdf", ConvertOptions())
+    assert out[:4] == b"%PDF"
+
+
+def test_render_document_rejects_data_target():
+    with pytest.raises(ConversionError):
+        render_document("<p>hi</p>", "json", ConvertOptions())
 
 
 # --- Error handling ---------------------------------------------------------

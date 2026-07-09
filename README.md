@@ -28,11 +28,29 @@ Ghi chú:
 
 ## Tính năng
 
+- **Tự phát hiện định dạng nguồn** từ đuôi file (chọn "Tự động", hỗ trợ cả
+  `.yml`, `.htm`, `.markdown`, `.tex`...).
+- **Chuyển đổi từ URL**: dán link trang web → md/pdf/docx... (có chặn SSRF,
+  chỉ nhận http/https công khai).
+- **Gộp nhiều file thành 1**: nhiều `.md`/`.docx`... → một file tài liệu duy
+  nhất (mỗi file một trang khi xuất PDF).
+- **Tùy chọn khi convert**:
+  - Cỡ giấy PDF: A4, Letter, Legal, A3, A5
+  - Mục lục (Table of Contents) tự sinh từ các heading
+  - Theme CSS cho HTML/PDF: default, github, dark, minimal
 - **Ảnh**: `docx → html/pdf` giữ được ảnh (nhúng base64), `html → docx`
   chèn lại ảnh từ data URI.
 - **Bảng**: bảng được giữ khi chuyển `docx ↔ html ↔ md` và `html → docx`.
 - **Định dạng inline**: in đậm/nghiêng được giữ trong `html → docx/rtf`.
 - **Nhiều file**: upload nhiều file cùng lúc → tải về một file `.zip`.
+
+## API
+
+| Endpoint | Mô tả |
+|----------|-------|
+| `GET /api/formats` | Danh mục định dạng |
+| `POST /api/convert` | Convert file. Fields: `files`, `source` (hoặc `auto`), `target`, `paper_size`, `toc`, `theme`, `merge` |
+| `POST /api/convert-url` | Convert từ URL. Fields: `url`, `target`, `paper_size`, `toc`, `theme` |
 
 ## Kiến trúc
 

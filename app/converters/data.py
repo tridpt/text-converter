@@ -84,7 +84,7 @@ def read_toml(data: bytes) -> object:
 
 
 @writer("toml")
-def write_toml(obj: object) -> bytes:
+def write_toml(obj: object, options=None) -> bytes:
     if not isinstance(obj, dict):
         obj = {"data": obj}
     try:
@@ -115,17 +115,17 @@ def _elem_to_obj(elem: ET.Element) -> object:
 
 # --- Writers (Python object -> bytes) ---------------------------------------
 @writer("json")
-def write_json(obj: object) -> bytes:
+def write_json(obj: object, options=None) -> bytes:
     return json.dumps(obj, indent=2, ensure_ascii=False).encode("utf-8")
 
 
 @writer("yaml")
-def write_yaml(obj: object) -> bytes:
+def write_yaml(obj: object, options=None) -> bytes:
     return yaml.safe_dump(obj, allow_unicode=True, sort_keys=False).encode("utf-8")
 
 
 @writer("csv")
-def write_csv(obj: object) -> bytes:
+def write_csv(obj: object, options=None) -> bytes:
     rows = _as_rows(obj)
     if not rows:
         return b""
@@ -163,7 +163,7 @@ def _scalar(value: object) -> str:
 
 
 @writer("xml")
-def write_xml(obj: object) -> bytes:
+def write_xml(obj: object, options=None) -> bytes:
     if isinstance(obj, dict) and len(obj) == 1:
         (root_tag,) = obj.keys()
         (root_value,) = obj.values()
