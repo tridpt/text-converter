@@ -203,7 +203,7 @@ ruff format app tests                       # format code
 ```
 
 CI trên GitHub Actions chạy lint (ruff) + test có đo coverage (ngưỡng tối
-thiểu 80%) mỗi lần push/PR, và upload lên Codecov.
+thiểu 90%, hiện ~93%) mỗi lần push/PR, và upload lên Codecov.
 
 ## Thêm định dạng mới
 
