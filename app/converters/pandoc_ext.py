@@ -121,8 +121,22 @@ def _read_with_pandoc(data: bytes, fmt: str, ext: str) -> str:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def _write_with_pandoc(html: str, fmt: str, binary: bool, extra_args: list[str]) -> bytes:
+def _metadata_args(options) -> list[str]:
+    args = []
+    if options is not None:
+        if getattr(options, "title", ""):
+            args += ["-M", f"title={options.title}"]
+        if getattr(options, "author", ""):
+            args += ["-M", f"author={options.author}"]
+    return args
+
+
+def _write_with_pandoc(
+    html: str, fmt: str, binary: bool, extra_args: list[str], options=None
+) -> bytes:
     import pypandoc
+
+    extra_args = extra_args + _metadata_args(options)
 
     if binary:
         fd, out_path = tempfile.mkstemp(suffix=f".{fmt}", prefix="tc_pandoc_")
@@ -154,7 +168,7 @@ def _make_reader(fmt: str, pandoc_fmt: str, ext: str):
 def _make_writer(fmt: str, pandoc_fmt: str, binary: bool, extra_args: list[str]):
     @writer(fmt)
     def _w(html: str, options: ConvertOptions | None = None) -> bytes:
-        return _write_with_pandoc(html, pandoc_fmt, binary, extra_args)
+        return _write_with_pandoc(html, pandoc_fmt, binary, extra_args, options)
 
     return _w
 

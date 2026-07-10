@@ -303,6 +303,38 @@ def test_asciidoc_is_write_only():
     assert names["asciidoc"]["readable"] is False
 
 
+# --- Metadata & page numbers ------------------------------------------------
+def test_pdf_with_page_numbers_renders():
+    out = convert(b"# T\n\nBody", "md", "pdf", ConvertOptions(page_numbers=True))
+    assert out[:4] == b"%PDF"
+
+
+@pandoc_only
+def test_epub_embeds_title_metadata():
+    import io
+    import zipfile
+
+    epub = convert(
+        b"# Chapter\n\ntext", "md", "epub", ConvertOptions(title="My Book", author="Kiro")
+    )
+    z = zipfile.ZipFile(io.BytesIO(epub))
+    assert any(b"My Book" in z.read(n) for n in z.namelist() if n.endswith(".opf"))
+
+
+@pandoc_only
+def test_docx_embeds_title_and_author():
+    import io
+    import zipfile
+
+    docx = convert(
+        b"# Doc\n\ntext", "md", "docx", ConvertOptions(title="My Book", author="Kiro")
+    )
+    z = zipfile.ZipFile(io.BytesIO(docx))
+    core = z.read("docProps/core.xml")
+    assert b"My Book" in core
+    assert b"Kiro" in core
+
+
 # --- HTML sanitization ------------------------------------------------------
 def test_sanitize_removes_script_and_handlers():
     src = b'<h1>Hi</h1><script>alert(1)</script><p onclick="x()">t</p>'

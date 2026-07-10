@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import ipaddress
+import logging
 import socket
 import time
 import zipfile
@@ -25,12 +26,33 @@ from .converters import (
     render_document,
 )
 from .converters.registry import get_spec, support_matrix
+from .logging_config import configure_logging, log
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE = BASE_DIR / "templates" / "index.html"
 MATRIX_TEMPLATE = BASE_DIR / "templates" / "matrix.html"
 
-app = FastAPI(title="Text Format Converter", version="0.3.0")
+logger = configure_logging()
+app = FastAPI(title="Text Format Converter", version="0.4.0")
+
+
+@app.middleware("http")
+async def request_logger(request: Request, call_next):
+    """Log each request with method, path, status and duration."""
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = round((time.perf_counter() - start) * 1000, 1)
+    log(
+        logger,
+        logging.INFO,
+        "request",
+        method=request.method,
+        path=request.url.path,
+        status=response.status_code,
+        duration_ms=duration_ms,
+    )
+    return response
+
 
 # Endpoints that perform (potentially expensive) conversions.
 _PROTECTED_PATHS = {"/api/convert", "/api/convert-url"}
@@ -104,8 +126,22 @@ def matrix_page() -> str:
 
 
 # --- Helpers ----------------------------------------------------------------
-def _build_options(paper_size: str, toc: bool, theme: str) -> ConvertOptions:
-    return ConvertOptions(paper_size=paper_size, toc=toc, theme=theme)
+def _build_options(
+    paper_size: str,
+    toc: bool,
+    theme: str,
+    title: str = "",
+    author: str = "",
+    page_numbers: bool = False,
+) -> ConvertOptions:
+    return ConvertOptions(
+        paper_size=paper_size,
+        toc=toc,
+        theme=theme,
+        title=title,
+        author=author,
+        page_numbers=page_numbers,
+    )
 
 
 def _resolve_source(source: str, filename: str) -> str:
@@ -147,13 +183,16 @@ async def api_convert(
     toc: bool = Form(False),
     theme: str = Form("default"),
     merge: bool = Form(False),
+    title: str = Form(""),
+    author: str = Form(""),
+    page_numbers: bool = Form(False),
 ) -> StreamingResponse:
     files = [f for f in files if f.filename]
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded.")
 
     spec = get_spec(target)
-    options = _build_options(paper_size, toc, theme)
+    options = _build_options(paper_size, toc, theme, title, author, page_numbers)
 
     # Merge: combine every input into a single document output.
     if merge and len(files) > 1:
@@ -237,10 +276,13 @@ async def api_convert_url(
     paper_size: str = Form("A4"),
     toc: bool = Form(False),
     theme: str = Form("default"),
+    title: str = Form(""),
+    author: str = Form(""),
+    page_numbers: bool = Form(False),
 ) -> StreamingResponse:
     _validate_public_url(url)
     spec = get_spec(target)
-    options = _build_options(paper_size, toc, theme)
+    options = _build_options(paper_size, toc, theme, title, author, page_numbers)
 
     try:
         async with httpx.AsyncClient(

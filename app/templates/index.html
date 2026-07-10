@@ -17,7 +17,7 @@
     a { color:var(--accent); }
     #lang { background:#0f172a; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:.35rem .5rem; font-size:.8rem; cursor:pointer; }
     label { display:block; font-size:.78rem; color:var(--muted); margin:.9rem 0 .3rem; text-transform:uppercase; letter-spacing:.05em; }
-    input[type=url], select { width:100%; padding:.65rem; border-radius:8px; border:1px solid var(--line);
+    input[type=url], input[type=text], select { width:100%; padding:.65rem; border-radius:8px; border:1px solid var(--line);
             background:#0f172a; color:var(--text); font-size:.92rem; }
     .row { display:flex; gap:1rem; }
     .row > div { flex:1; }
@@ -139,8 +139,19 @@
           </select>
         </div>
       </div>
+      <div class="row">
+        <div>
+          <label data-i18n="titleLabel">Tiêu đề (metadata)</label>
+          <input type="text" id="mtitle" placeholder="">
+        </div>
+        <div>
+          <label data-i18n="authorLabel">Tác giả (metadata)</label>
+          <input type="text" id="mauthor" placeholder="">
+        </div>
+      </div>
       <div class="checks">
         <label><input type="checkbox" id="toc"> <span data-i18n="toc">Thêm mục lục (Table of Contents)</span></label>
+        <label><input type="checkbox" id="pagenum"> <span data-i18n="pagenum">Đánh số trang (PDF)</span></label>
       </div>
     </details>
 
@@ -173,6 +184,8 @@
         merge: "Gộp nhiều file thành 1", urlLabel: "Dán link trang web",
         urlHint: "Chỉ nhận URL http/https công khai, trả về nội dung văn bản/HTML.",
         options: "Tùy chọn", themeLabel: "Theme (HTML/PDF)", paperLabel: "Cỡ giấy (PDF)",
+        titleLabel: "Tiêu đề (metadata)", authorLabel: "Tác giả (metadata)",
+        pagenum: "Đánh số trang (PDF)",
         toc: "Thêm mục lục (Table of Contents)", preview: "Xem trước",
         convert: "Chuyển đổi & Tải về", previewTitle: "Xem trước",
         auto: "Tự động (theo đuôi file)", famDoc: "Tài liệu", famData: "Dữ liệu",
@@ -195,6 +208,8 @@
         merge: "Merge files into one", urlLabel: "Paste a web link",
         urlHint: "Only public http/https URLs returning text/HTML are accepted.",
         options: "Options", themeLabel: "Theme (HTML/PDF)", paperLabel: "Paper size (PDF)",
+        titleLabel: "Title (metadata)", authorLabel: "Author (metadata)",
+        pagenum: "Page numbers (PDF)",
         toc: "Add a table of contents", preview: "Preview",
         convert: "Convert & Download", previewTitle: "Preview",
         auto: "Auto (by file extension)", famDoc: "Documents", famData: "Data",
@@ -342,7 +357,7 @@
       });
     }
 
-    ['source','target','target-url','theme','paper','merge','toc','url']
+    ['source','target','target-url','theme','paper','merge','toc','url','pagenum','mtitle','mauthor']
       .forEach(id => { const el = $(id); if (el) el.addEventListener('change', invalidate); });
     $('url').addEventListener('input', invalidate);
 
@@ -351,6 +366,9 @@
       fd.append('theme', $('theme').value);
       fd.append('paper_size', $('paper').value);
       fd.append('toc', $('toc').checked);
+      fd.append('page_numbers', $('pagenum').checked);
+      fd.append('title', $('mtitle').value);
+      fd.append('author', $('mauthor').value);
       if (mode === 'file') {
         if (!selectedFiles.length) throw new Error(T().chooseFile);
         for (const f of selectedFiles) fd.append('files', f);

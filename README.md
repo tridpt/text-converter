@@ -9,6 +9,15 @@
 
 Web app (Python + FastAPI) chuyển đổi qua lại giữa nhiều định dạng file văn bản.
 
+## Ảnh chụp màn hình
+
+<!-- Thêm ảnh/GIF demo vào thư mục docs/ rồi bỏ comment các dòng dưới:
+![Giao diện chính](docs/screenshot-home.png)
+![Ma trận định dạng](docs/screenshot-matrix.png)
+-->
+
+> Chưa có ảnh. Xem [docs/README.md](docs/README.md) để biết cách chụp và thêm.
+
 ## Định dạng hỗ trợ
 
 | Nhóm | Định dạng | Hub trung gian |
@@ -73,6 +82,8 @@ ghi qua xhtml2pdf (giữ tùy chọn cỡ giấy/theme).
   - Cỡ giấy PDF: A4, Letter, Legal, A3, A5
   - Mục lục (Table of Contents) tự sinh từ các heading
   - Theme CSS cho HTML/PDF: default, github, dark, minimal
+  - Metadata tiêu đề/tác giả (nhúng vào epub/docx/...)
+  - Đánh số trang cho PDF
 - **Ảnh**: `docx → html/pdf` giữ được ảnh (nhúng base64), `html → docx`
   chèn lại ảnh từ data URI.
 - **Bảng**: bảng được giữ khi chuyển `docx ↔ html ↔ md` và `html → docx`.
@@ -85,8 +96,8 @@ ghi qua xhtml2pdf (giữ tùy chọn cỡ giấy/theme).
 |----------|-------|
 | `GET /api/formats` | Danh mục định dạng |
 | `GET /api/matrix` | Ma trận cặp nguồn → đích hỗ trợ |
-| `POST /api/convert` | Convert file. Fields: `files`, `source` (hoặc `auto`), `target`, `paper_size`, `toc`, `theme`, `merge` |
-| `POST /api/convert-url` | Convert từ URL. Fields: `url`, `target`, `paper_size`, `toc`, `theme` |
+| `POST /api/convert` | Convert file. Fields: `files`, `source` (hoặc `auto`), `target`, `paper_size`, `toc`, `theme`, `merge`, `title`, `author`, `page_numbers` |
+| `POST /api/convert-url` | Convert từ URL. Fields: `url`, `target`, `paper_size`, `toc`, `theme`, `title`, `author`, `page_numbers` |
 
 Nếu đặt `API_KEY`, hai endpoint convert cần header `X-API-Key`.
 
@@ -135,6 +146,8 @@ Sao chép `.env.example` và chỉnh nếu cần:
 | `API_KEY` | *(trống)* | Nếu đặt, endpoint convert yêu cầu header `X-API-Key` |
 | `RATE_LIMIT_PER_MINUTE` | `0` | Giới hạn request/phút mỗi IP (`0` = tắt) |
 | `SANITIZE_HTML` | `1` | Loại script/nội dung động khỏi HTML xuất ra (`0` để tắt) |
+| `LOG_LEVEL` | `INFO` | Mức log (DEBUG/INFO/WARNING/ERROR) |
+| `LOG_JSON` | `0` | Log dạng JSON có cấu trúc cho production (`1` để bật) |
 
 > Rate limit lưu trong bộ nhớ tiến trình — reset khi restart và không chia sẻ
 > giữa nhiều worker. Đủ dùng cho single-instance; nếu chạy nhiều instance nên

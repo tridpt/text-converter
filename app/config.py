@@ -31,6 +31,9 @@ class Settings:
             "false",
             "False",
         )
+        # Logging.
+        self.log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
+        self.log_json: bool = os.getenv("LOG_JSON", "0") not in ("0", "false", "False")
 
     @property
     def max_upload_bytes(self) -> int:

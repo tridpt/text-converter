@@ -50,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--theme", default="default", help="CSS theme for HTML/PDF")
     parser.add_argument("-p", "--paper-size", default="A4", help="PDF paper size")
     parser.add_argument("--toc", action="store_true", help="add a table of contents")
+    parser.add_argument("--title", default="", help="document metadata title")
+    parser.add_argument("--author", default="", help="document metadata author")
+    parser.add_argument(
+        "--page-numbers", action="store_true", help="add page numbers to PDF output"
+    )
     return parser
 
 
@@ -61,7 +66,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     *inputs, output = args.paths
-    options = ConvertOptions(paper_size=args.paper_size, toc=args.toc, theme=args.theme)
+    options = ConvertOptions(
+        paper_size=args.paper_size,
+        toc=args.toc,
+        theme=args.theme,
+        title=args.title,
+        author=args.author,
+        page_numbers=args.page_numbers,
+    )
 
     try:
         target = args.target or detect_format(output)

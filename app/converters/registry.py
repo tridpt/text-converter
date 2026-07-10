@@ -39,6 +39,9 @@ class ConvertOptions:
     paper_size: str = "A4"  # A4, Letter, Legal, A3, A5 (PDF only)
     toc: bool = False  # prepend a table of contents (documents)
     theme: str = "default"  # CSS theme for HTML/PDF output
+    title: str = ""  # document metadata title (epub/docx/...)
+    author: str = ""  # document metadata author
+    page_numbers: bool = False  # add page numbers to PDF output
 
 
 # Extra file-extension aliases mapped to canonical format names.

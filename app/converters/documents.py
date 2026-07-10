@@ -148,12 +148,31 @@ _PAPER_SIZES = {"A3", "A4", "A5", "Letter", "Legal"}
 
 
 def _wrap_html_document(
-    body_html: str, theme: str = "default", paper_size: str | None = None
+    body_html: str,
+    theme: str = "default",
+    paper_size: str | None = None,
+    page_numbers: bool = False,
 ) -> str:
     """Wrap fragment HTML in a well-formed HTML document with a theme."""
     css = THEMES.get(theme, THEMES["default"])
-    if paper_size and paper_size in _PAPER_SIZES:
-        css += f"@page{{size:{paper_size};margin:2cm;}}"
+    size = paper_size if (paper_size and paper_size in _PAPER_SIZES) else None
+    if size or page_numbers:
+        frame = ""
+        footer = ""
+        if page_numbers:
+            # xhtml2pdf pulls the #footerContent element into a footer frame
+            # rendered on every page.
+            frame = (
+                "@frame footer_frame{-pdf-frame-content:footerContent;"
+                "bottom:1cm;margin-left:2cm;margin-right:2cm;height:1cm;}"
+            )
+            footer = (
+                '<div id="footerContent" style="text-align:center;'
+                'font-size:10px;color:#888;">'
+                "<pdf:pagenumber/> / <pdf:pagecount/></div>"
+            )
+            body_html = body_html + "\n" + footer
+        css += f"@page{{size:{size or 'A4'};margin:2cm;{frame}}}"
     css += (
         ".toc{border:1px solid #ccc;padding:.5rem 1rem;margin-bottom:1.5rem;}"
         ".toc ul{margin:.3rem 0;}"
@@ -484,7 +503,10 @@ def write_pdf(html: str, options: ConvertOptions | None = None) -> bytes:
     options = options or ConvertOptions()
     if "<html" not in html.lower():
         html = _wrap_html_document(
-            html, theme=options.theme, paper_size=options.paper_size
+            html,
+            theme=options.theme,
+            paper_size=options.paper_size,
+            page_numbers=options.page_numbers,
         )
     buf = io.BytesIO()
     result = pisa.CreatePDF(src=html, dest=buf, encoding="utf-8")
