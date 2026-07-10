@@ -84,6 +84,20 @@ register_format(
         True,
     )
 )
+# Lightweight markup formats, handled by Pandoc (see pandoc_ext.py).
+register_format(
+    FormatSpec("rst", "document", "reStructuredText", ".rst", "text/x-rst", False)
+)
+register_format(FormatSpec("org", "document", "Org mode", ".org", "text/plain", False))
+register_format(
+    FormatSpec("textile", "document", "Textile", ".textile", "text/x-textile", False)
+)
+register_format(
+    FormatSpec("mediawiki", "document", "MediaWiki", ".wiki", "text/plain", False)
+)
+register_format(
+    FormatSpec("asciidoc", "document", "AsciiDoc", ".adoc", "text/asciidoc", False)
+)
 
 
 # --- Helpers ----------------------------------------------------------------

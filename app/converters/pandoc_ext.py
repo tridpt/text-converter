@@ -30,6 +30,11 @@ _READ_CONFIG = {
     "docx": ("docx", ".docx"),
     "odt": ("odt", ".odt"),
     "epub": ("epub", ".epub"),
+    # Lightweight markup formats that Pandoc can parse.
+    "rst": ("rst", ".rst"),
+    "org": ("org", ".org"),
+    "textile": ("textile", ".textile"),
+    "mediawiki": ("mediawiki", ".wiki"),
 }
 
 # Writers: our format id -> (pandoc output format, is_binary, extra pandoc args).
@@ -46,6 +51,12 @@ _WRITE_CONFIG = {
         ["--standalone", "-V", f"revealjs-url={_REVEALJS_URL}"],
     ),
     "pptx": ("pptx", True, []),
+    # Lightweight markup output (fragments are complete documents; no preamble).
+    "rst": ("rst", False, []),
+    "org": ("org", False, []),
+    "textile": ("textile", False, []),
+    "mediawiki": ("mediawiki", False, []),
+    "asciidoc": ("asciidoc", False, []),  # write-only (Pandoc can't read AsciiDoc)
 }
 
 

@@ -37,5 +37,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run tests
-        run: pytest -q
+      - name: Run tests with coverage
+        run: pytest -q --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false

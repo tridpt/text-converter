@@ -49,6 +49,8 @@ _EXTENSION_ALIASES: dict[str, str] = {
     ".mdown": "md",
     ".tex": "latex",
     ".text": "txt",
+    ".asciidoc": "asciidoc",
+    ".adoc": "asciidoc",
 }
 
 

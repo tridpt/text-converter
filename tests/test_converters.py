@@ -281,6 +281,28 @@ def test_md_to_pptx():
     assert out[:2] == b"PK"
 
 
+@pandoc_only
+@pytest.mark.parametrize("fmt", ["rst", "org", "textile", "mediawiki", "asciidoc"])
+def test_md_to_lightweight_markup(fmt):
+    out = convert(b"# Title\n\nHello **world**", "md", fmt).decode()
+    assert "Title" in out
+    assert "world" in out
+
+
+@pandoc_only
+@pytest.mark.parametrize("fmt", ["rst", "org", "textile", "mediawiki"])
+def test_lightweight_markup_round_trip(fmt):
+    md = convert(convert(b"# Heading\n\nSome text", "md", fmt), fmt, "md").decode()
+    assert "Heading" in md
+
+
+@pandoc_only
+def test_asciidoc_is_write_only():
+    names = {f["name"]: f for f in list_formats()}
+    assert names["asciidoc"]["writable"] is True
+    assert names["asciidoc"]["readable"] is False
+
+
 # --- HTML sanitization ------------------------------------------------------
 def test_sanitize_removes_script_and_handlers():
     src = b'<h1>Hi</h1><script>alert(1)</script><p onclick="x()">t</p>'
