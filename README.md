@@ -18,6 +18,17 @@ Web app (Python + FastAPI) chuyển đổi qua lại giữa nhiều định dạ
 
 > Chưa có ảnh. Xem [docs/README.md](docs/README.md) để biết cách chụp và thêm.
 
+## Tài liệu
+
+| Tài liệu | Nội dung |
+|----------|----------|
+| [docs/USAGE.md](docs/USAGE.md) | Hướng dẫn sử dụng (web UI, CLI, ví dụ) |
+| [docs/FORMATS.md](docs/FORMATS.md) | Định dạng, khả năng đọc/ghi, vai trò pandoc |
+| [docs/API.md](docs/API.md) | Tham chiếu API HTTP + ví dụ `curl` |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Biến môi trường, bảo mật, deploy |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Kiến trúc & luồng xử lý |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Hướng dẫn đóng góp |
+
 ## Định dạng hỗ trợ
 
 | Nhóm | Định dạng | Hub trung gian |
